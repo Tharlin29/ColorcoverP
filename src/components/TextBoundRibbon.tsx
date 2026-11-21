@@ -21,6 +21,7 @@ import { FontOption, TextLayer, TextStylePreset } from "../types/studio";
 import { FONT_OPTIONS } from "../utils/imageEditor";
 import { TEXT_BOUND_STYLES } from "../utils/textBoundRenderer";
 import { StepperControl } from "./StepperControl";
+import { TextBoundSvg } from "./TextBoundSvg";
 
 export const DEFAULT_RIBBON_STYLE_PRESETS: { id: TextStylePreset; label: string }[] = [
   { id: "comic-3d", label: "Comic 3D" },
@@ -775,10 +776,10 @@ export function TextBoundRibbon({
                       </button>
 
                       {openPopover === "bound-shape" && (
-                        <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 bg-white border border-zinc-200 rounded-xl shadow-xl p-3 z-50 space-y-2">
+                        <div className="absolute left-0 top-full mt-1.5 w-[336px] sm:w-[440px] bg-white border border-zinc-200 rounded-xl shadow-xl p-3 z-50 space-y-2.5">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-bold text-zinc-900">
-                              Text Bound / ဘောင်စတိုင် (၂၁ မျိုး)
+                            <span className="text-[11px] font-bold text-zinc-900 tabular-nums">
+                              Text Bound / ဘောင်စတိုင် (၃၀ မျိုး)
                             </span>
                             {hasBound && (
                               <button
@@ -793,7 +794,7 @@ export function TextBoundRibbon({
                               </button>
                             )}
                           </div>
-                          <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto pr-0.5">
+                          <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
                             {TEXT_BOUND_STYLES.map((bs) => {
                               const selected = (activeLayer.boundStyle ?? "none") === bs.id;
                               return (
@@ -804,13 +805,37 @@ export function TextBoundRibbon({
                                     onUpdateLayer({ boundStyle: bs.id });
                                     setOpenPopover(null);
                                   }}
-                                  className={`min-h-[34px] px-2 py-1 text-[11px] font-medium rounded-lg border cursor-pointer truncate ${
+                                  className={`min-h-[72px] px-2 py-2 rounded-lg border transition-colors cursor-pointer flex flex-col items-center justify-between gap-1 ${
                                     selected
                                       ? "bg-zinc-950 text-white border-zinc-950"
-                                      : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                                      : "bg-zinc-50 text-zinc-800 border-zinc-200 hover:border-zinc-500 hover:bg-white"
                                   }`}
                                 >
-                                  {bs.label}
+                                  <div className="w-full h-9 flex items-center justify-center">
+                                    {bs.id === "none" ? (
+                                      <span
+                                        className={`text-[11px] font-semibold ${
+                                          selected ? "text-zinc-300" : "text-zinc-400"
+                                        }`}
+                                      >
+                                        Aa
+                                      </span>
+                                    ) : (
+                                      <TextBoundSvg
+                                        styleType={bs.id}
+                                        thickness={2.6}
+                                        radius={6}
+                                        strokeColor={selected ? "#FFFFFF" : "#18181B"}
+                                        fillColor={selected ? "#27272A" : "#FFFFFF"}
+                                        fillOpacity={1}
+                                        scale={0.62}
+                                        fixedSize={{ w: 56, h: 24 }}
+                                      />
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] font-semibold leading-none truncate w-full text-center tabular-nums">
+                                    {bs.label}
+                                  </span>
                                 </button>
                               );
                             })}
@@ -831,8 +856,8 @@ export function TextBoundRibbon({
                       </button>
                     )}
                   </div>
-                  <span className="text-[10px] font-medium text-zinc-400 leading-none">
-                    Bound Style (၂၁ မျိုး)
+                  <span className="text-[10px] font-medium text-zinc-400 leading-none tabular-nums">
+                    Bound Style (၃၀ မျိုး)
                   </span>
                 </div>
 

@@ -82,7 +82,16 @@ export type TextBoundStyle =
   | "leaf"
   | "heart"
   | "seal"
-  | "book";
+  | "book"
+  | "cloud-puff"
+  | "royal-scroll"
+  | "crown-crest"
+  | "comic-burst"
+  | "vintage-plaque"
+  | "postage-stamp"
+  | "floral-arch"
+  | "starlight"
+  | "washi-tape";
 
 export interface FontOption {
   id: string;
