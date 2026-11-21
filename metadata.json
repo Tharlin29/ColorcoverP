@@ -1,0 +1,6 @@
+{
+  "name": "Lumina Studio",
+  "description": "Creative photo and video studio for prompt-based photo creation, Photo Hall curation, Live Photo and Video conversion, and custom typography styling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
