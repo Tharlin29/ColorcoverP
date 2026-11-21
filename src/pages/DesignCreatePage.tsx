@@ -43,6 +43,7 @@ import { svgToDataUrl } from "../utils/stickerLibrary";
 
 interface DesignCreatePageProps {
   photos: PhotoItem[];
+  initialPhoto?: PhotoItem | null;
   onNavigate: (page: PageId) => void;
   onSaveNewPhoto: (photo: PhotoItem) => Promise<void>;
   onSendToPage: (page: PageId, photo: PhotoItem) => void;
@@ -242,6 +243,7 @@ function createDesignCustomTextLayer(index: number, fontFamily: string): TextLay
 
 export function DesignCreatePage({
   photos,
+  initialPhoto,
   onNavigate,
   onSaveNewPhoto,
   onSendToPage,
@@ -271,6 +273,25 @@ export function DesignCreatePage({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const slotFileInputRef = useRef<HTMLInputElement>(null);
   const customBgInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!initialPhoto) return;
+    setConfig((prev) => ({
+      ...prev,
+      cards: prev.cards.map((c, idx) =>
+        idx === 0
+          ? {
+              ...c,
+              imageUrl: initialPhoto.dataUrl,
+              title: initialPhoto.title.slice(0, 32),
+              paper: "white",
+            }
+          : c
+      ),
+    }));
+    setInspectorTab("cards");
+    setAiNotice(`Loaded "${initialPhoto.title}" into Showcase Card #1.`);
+  }, [initialPhoto]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

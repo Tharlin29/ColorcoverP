@@ -235,6 +235,15 @@ export interface EditOverlayLayer {
   rotation: number; // -180..180
   flipH: boolean;
   opacity: number; // 0.1..1
+  locked?: boolean;
+  hidden?: boolean;
+}
+
+export interface CanvasDrawStroke {
+  id: string;
+  tool: "ink" | "whiteout";
+  width: number; // relative stroke width on 1000px base
+  points: { x: number; y: number }[]; // normalized 0..1000 coordinates
 }
 
 export type ShowcaseLayoutId =

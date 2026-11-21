@@ -67,6 +67,7 @@ export default function App() {
         {activePage === "design" && (
           <DesignCreatePage
             photos={photos}
+            initialPhoto={handoffPhoto}
             onNavigate={navigateTo}
             onSaveNewPhoto={handleSavePhoto}
             onSendToPage={handleSendToPage}
@@ -116,6 +117,7 @@ export default function App() {
             photos={photos}
             initialPhoto={handoffPhoto}
             onSaveNewPhoto={handleSavePhoto}
+            onSendToPage={handleSendToPage}
             onBackHome={() => navigateTo("design")}
           />
         )}

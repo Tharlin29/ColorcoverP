@@ -1,5 +1,16 @@
-import { BookOpen, Download, Eraser, FileText, Pencil, Trash2, Type, X } from "lucide-react";
-import { useState } from "react";
+import {
+  BookOpen,
+  Download,
+  Eraser,
+  FileText,
+  Pencil,
+  Search,
+  Trash2,
+  Type,
+  Wand2,
+  X,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { PageId, PhotoItem } from "../types/studio";
 import { exportSinglePhotoAsPdf } from "../utils/exportTools";
 import { triggerBlobDownload, triggerDownload } from "../utils/storage";
@@ -13,6 +24,8 @@ interface PhotoHallModalProps {
   onSendToPage: (page: PageId, photo: PhotoItem) => void;
 }
 
+type PhotoFilterKind = "all" | "coloring" | "edited" | "generated" | "text-art";
+
 export function PhotoHallModal({
   open,
   photos,
@@ -22,6 +35,38 @@ export function PhotoHallModal({
   onSendToPage,
 }: PhotoHallModalProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterKind, setFilterKind] = useState<PhotoFilterKind>("all");
+
+  const kindCounts = useMemo(() => {
+    const counts: Record<PhotoFilterKind, number> = {
+      all: photos.length,
+      coloring: 0,
+      edited: 0,
+      generated: 0,
+      "text-art": 0,
+    };
+    for (const p of photos) {
+      if (p.kind === "coloring" || p.isColoringPage) counts.coloring += 1;
+      if (p.kind === "edited") counts.edited += 1;
+      if (p.kind === "generated" || p.kind === "uploaded" || p.kind === "curated") counts.generated += 1;
+      if (p.kind === "text-art") counts["text-art"] += 1;
+    }
+    return counts;
+  }, [photos]);
+
+  const filteredPhotos = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return photos.filter((p) => {
+      if (filterKind === "coloring" && !(p.kind === "coloring" || p.isColoringPage)) return false;
+      if (filterKind === "edited" && p.kind !== "edited") return false;
+      if (filterKind === "generated" && !["generated", "uploaded", "curated"].includes(p.kind)) return false;
+      if (filterKind === "text-art" && p.kind !== "text-art") return false;
+      if (!q) return true;
+      const haystack = `${p.title} ${p.prompt || ""} ${p.mood || ""} ${p.kind}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [photos, searchQuery, filterKind]);
 
   if (!open) return null;
 
@@ -36,7 +81,7 @@ export function PhotoHallModal({
         {/* Header */}
         <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-zinc-200">
           <div>
-            <h2 className="text-lg font-semibold text-zinc-950">
+            <h2 className="text-lg font-semibold text-zinc-950 tabular-nums">
               Photo Hall ({photos.length})
             </h2>
             <p className="text-xs text-zinc-500">
@@ -54,6 +99,60 @@ export function PhotoHallModal({
           </button>
         </div>
 
+        {/* Search & Filter Toolbar */}
+        {photos.length > 0 && (
+          <div className="px-6 py-3 bg-zinc-50 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[220px] max-w-sm">
+              <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search saved pages by title or prompt..."
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-zinc-200/70 rounded-lg">
+              {(
+                [
+                  { id: "all", label: "All" },
+                  { id: "coloring", label: "Coloring" },
+                  { id: "edited", label: "Edited" },
+                  { id: "generated", label: "Generated" },
+                  { id: "text-art", label: "Text" },
+                ] as const
+              ).map((tab) => {
+                const active = filterKind === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterKind(tab.id)}
+                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                      active
+                        ? "bg-white text-zinc-950 shadow-sm"
+                        : "text-zinc-600 hover:text-zinc-950"
+                    }`}
+                  >
+                    {tab.label} ({kindCounts[tab.id]})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {photos.length === 0 ? (
@@ -63,9 +162,26 @@ export function PhotoHallModal({
                 Create a photo or coloring book page from a prompt to save it here.
               </p>
             </div>
+          ) : filteredPhotos.length === 0 ? (
+            <div className="py-16 text-center space-y-3">
+              <p className="text-base font-medium text-zinc-900">No matching pages found</p>
+              <p className="text-sm text-zinc-500 max-w-md mx-auto">
+                Try another search term or switch back to All categories.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setFilterKind("all");
+                }}
+                className="min-h-[38px] px-4 py-2 text-xs font-semibold text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded-lg cursor-pointer"
+              >
+                Clear filters
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {photos.map((photo) => (
+              {filteredPhotos.map((photo) => (
                 <div
                   key={photo.id}
                   className="group border border-zinc-200 rounded-xl overflow-hidden bg-white flex flex-col"
@@ -107,12 +223,23 @@ export function PhotoHallModal({
                         type="button"
                         onClick={() => {
                           onClose();
+                          onSendToPage("ai-edit", photo);
+                        }}
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white bg-zinc-950 hover:bg-zinc-800 rounded-md cursor-pointer whitespace-nowrap"
+                      >
+                        <Wand2 className="w-3.5 h-3.5" />
+                        <span>AI Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
                           onEditPhoto(photo);
                         }}
-                        className="min-h-[38px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
                       >
                         <Pencil className="w-3.5 h-3.5" />
-                        <span>Edit</span>
+                        <span>Adjust</span>
                       </button>
                       <button
                         type="button"
@@ -120,7 +247,7 @@ export function PhotoHallModal({
                           onClose();
                           onSendToPage("erase", photo);
                         }}
-                        className="min-h-[38px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
                       >
                         <Eraser className="w-3.5 h-3.5" />
                         <span>Erase</span>
@@ -131,7 +258,7 @@ export function PhotoHallModal({
                           onClose();
                           onSendToPage("book", photo);
                         }}
-                        className="min-h-[38px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
                       >
                         <BookOpen className="w-3.5 h-3.5" />
                         <span>Book</span>
@@ -142,7 +269,7 @@ export function PhotoHallModal({
                           onClose();
                           onSendToPage("text", photo);
                         }}
-                        className="min-h-[38px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
                       >
                         <Type className="w-3.5 h-3.5" />
                         <span>Text</span>
@@ -154,7 +281,7 @@ export function PhotoHallModal({
                           triggerBlobDownload(blob, `${photo.title || "lumina-page"}.pdf`);
                         }}
                         title="Download PDF"
-                        className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 rounded-md cursor-pointer ml-auto"
+                        className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 rounded-md cursor-pointer ml-auto"
                       >
                         <FileText className="w-4 h-4" />
                       </button>
@@ -164,7 +291,7 @@ export function PhotoHallModal({
                           triggerDownload(photo.dataUrl, `${photo.title || "lumina-photo"}.png`)
                         }
                         title="Download PNG"
-                        className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 rounded-md cursor-pointer"
+                        className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 rounded-md cursor-pointer"
                       >
                         <Download className="w-4 h-4" />
                       </button>
@@ -175,7 +302,7 @@ export function PhotoHallModal({
                             await onDeletePhoto(photo.id);
                             setConfirmDeleteId(null);
                           }}
-                          className="min-h-[38px] px-2.5 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md cursor-pointer whitespace-nowrap"
+                          className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md cursor-pointer whitespace-nowrap"
                         >
                           Confirm
                         </button>
@@ -184,7 +311,7 @@ export function PhotoHallModal({
                           type="button"
                           onClick={() => setConfirmDeleteId(photo.id)}
                           aria-label="Delete photo"
-                          className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md cursor-pointer"
+                          className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

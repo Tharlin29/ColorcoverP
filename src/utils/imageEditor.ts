@@ -1,6 +1,7 @@
 import {
   AiEditColoringConfig,
   AiEditPlan,
+  CanvasDrawStroke,
   EditOverlayLayer,
   FontOption,
   PhotoAdjustments,
@@ -9,6 +10,7 @@ import {
   TextStudioImageLayer,
 } from "../types/studio";
 import { applyDpiToPngDataUrl } from "./exportTools";
+import { buildPageBorderDataUrl, PageBorderId } from "./pageBorderLibrary";
 import { getColoringDimensions } from "./proceduralArt";
 import { getTextCanvasDimensions } from "./promoStudio";
 import { drawTextBoundOnCanvas } from "./textBoundRenderer";
@@ -1452,7 +1454,11 @@ export async function renderStageCompositeWithLayers(
   height: number,
   layers: EditOverlayLayer[],
   coloringConfig: AiEditColoringConfig,
-  textLayers: TextLayer[] = []
+  textLayers: TextLayer[] = [],
+  options?: {
+    borderId?: PageBorderId;
+    drawStrokes?: CanvasDrawStroke[];
+  }
 ): Promise<{ dataUrl: string; width: number; height: number }> {
   const baseImg = await loadImage(baseDataUrl);
   const canvas = document.createElement("canvas");
@@ -1467,7 +1473,23 @@ export async function renderStageCompositeWithLayers(
   }
   ctx.drawImage(baseImg, 0, 0, width, height);
 
+  // Draw optional pure B&W page border frame
+  if (options?.borderId && options.borderId !== "none") {
+    try {
+      const aspectH = Math.round((1000 * height) / Math.max(1, width));
+      const borderUrl = buildPageBorderDataUrl(options.borderId, 1000, aspectH);
+      if (borderUrl) {
+        const borderImg = await loadImage(borderUrl);
+        ctx.drawImage(borderImg, 0, 0, width, height);
+      }
+    } catch {
+      // Skip border if unavailable
+    }
+  }
+
+  // Draw visible object/sticker/cartoon layers
   for (const layer of layers) {
+    if (layer.hidden) continue;
     const cx = (layer.x / 100) * width;
     const cy = (layer.y / 100) * height;
     const drawW = (layer.widthPct / 100) * width * layer.scale;
@@ -1488,6 +1510,41 @@ export async function renderStageCompositeWithLayers(
       }
     }
     ctx.restore();
+  }
+
+  // Draw normalized freehand Ink Pen (#000000) & Whiteout (#FFFFFF) strokes
+  if (options?.drawStrokes && options.drawStrokes.length > 0) {
+    const scaleRef = Math.min(width, height) / 1000;
+    for (const stroke of options.drawStrokes) {
+      if (!stroke.points.length) continue;
+      ctx.save();
+      ctx.strokeStyle = stroke.tool === "whiteout" ? "#FFFFFF" : "#000000";
+      ctx.fillStyle = stroke.tool === "whiteout" ? "#FFFFFF" : "#000000";
+      ctx.lineWidth = Math.max(1.5, stroke.width * scaleRef);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      if (stroke.points.length === 1) {
+        const pt = stroke.points[0];
+        ctx.beginPath();
+        ctx.arc((pt.x / 1000) * width, (pt.y / 1000) * height, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        const first = stroke.points[0];
+        ctx.moveTo((first.x / 1000) * width, (first.y / 1000) * height);
+        for (let i = 1; i < stroke.points.length - 1; i++) {
+          const curr = stroke.points[i];
+          const next = stroke.points[i + 1];
+          const midX = (((curr.x + next.x) / 2) / 1000) * width;
+          const midY = (((curr.y + next.y) / 2) / 1000) * height;
+          ctx.quadraticCurveTo((curr.x / 1000) * width, (curr.y / 1000) * height, midX, midY);
+        }
+        const last = stroke.points[stroke.points.length - 1];
+        ctx.lineTo((last.x / 1000) * width, (last.y / 1000) * height);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   if (coloringConfig.enabled) {

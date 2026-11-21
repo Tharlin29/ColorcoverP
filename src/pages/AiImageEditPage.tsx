@@ -2,29 +2,45 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  BookOpen,
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Copy,
   Download,
   Eraser,
   Eye,
+  EyeOff,
   FileText,
   FlipHorizontal2,
+  Frame,
+  Grid,
   Layers,
+  LayoutTemplate,
   Loader2,
+  Lock,
+  MousePointer2,
   Move,
+  PenTool,
+  Redo2,
   RotateCcw,
+  RotateCw,
   Search,
   ShieldCheck,
   Sparkles,
+  Star,
   Sticker,
   Trash2,
+  Undo2,
+  Unlock,
   Upload,
   Wand2,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ImageRegionEraserModal } from "../components/ImageRegionEraserModal";
 import { StepperControl } from "../components/StepperControl";
 import { TextBoundRibbon } from "../components/TextBoundRibbon";
@@ -33,8 +49,10 @@ import {
   AiEditColoringConfig,
   AiEditPlan,
   BookPageSize,
+  CanvasDrawStroke,
   ColoringColorMode,
   EditOverlayLayer,
+  PageId,
   PhotoItem,
   PrintDpi,
   TextLayer,
@@ -49,6 +67,11 @@ import {
   renderAiBaseStage,
   renderStageCompositeWithLayers,
 } from "../utils/imageEditor";
+import {
+  buildPageBorderDataUrl,
+  PAGE_BORDERS,
+  PageBorderId,
+} from "../utils/pageBorderLibrary";
 import { getColoringDimensions } from "../utils/proceduralArt";
 import {
   CARTOON_ASSETS,
@@ -73,7 +96,34 @@ interface AiImageEditPageProps {
   photos: PhotoItem[];
   initialPhoto: PhotoItem | null;
   onSaveNewPhoto: (photo: PhotoItem) => Promise<void>;
+  onSendToPage?: (page: PageId, photo: PhotoItem) => void;
   onBackHome: () => void;
+}
+
+interface EditorSnapshot {
+  layers: EditOverlayLayer[];
+  textLayers: TextLayer[];
+  pageBorderId: PageBorderId;
+  drawStrokes: CanvasDrawStroke[];
+}
+
+function buildStrokePathD(points: { x: number; y: number }[]): string {
+  if (points.length === 0) return "";
+  if (points.length === 1) {
+    const p = points[0];
+    return `M ${p.x.toFixed(1)} ${p.y.toFixed(1)} L ${(p.x + 0.1).toFixed(1)} ${(p.y + 0.1).toFixed(1)}`;
+  }
+  let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const curr = points[i];
+    const next = points[i + 1];
+    const mx = (curr.x + next.x) / 2;
+    const my = (curr.y + next.y) / 2;
+    d += ` Q ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}, ${mx.toFixed(1)} ${my.toFixed(1)}`;
+  }
+  const last = points[points.length - 1];
+  d += ` L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
+  return d;
 }
 
 const COLORING_EDIT_PRESETS = [
@@ -161,6 +211,7 @@ export function AiImageEditPage({
   photos,
   initialPhoto,
   onSaveNewPhoto,
+  onSendToPage,
   onBackHome,
 }: AiImageEditPageProps) {
   const [sourcePhoto, setSourcePhoto] = useState<{
@@ -172,10 +223,10 @@ export function AiImageEditPage({
     aspectRatio: string;
   } | null>(null);
 
-  const [toolTab, setToolTab] = useState<"ai" | "stickers">("ai");
+  const [toolTab, setToolTab] = useState<"ai" | "stickers" | "frames">("ai");
   const [stickerMode, setStickerMode] = useState<StickerMode>("sticker");
-  const [stickerSubTab, setStickerSubTab] = useState<"all" | StickerSubCategory | "ai">("all");
-  const [cartoonSubTab, setCartoonSubTab] = useState<"all" | CartoonSubCategory | "ai">("all");
+  const [stickerSubTab, setStickerSubTab] = useState<"all" | "favorites" | "recent" | StickerSubCategory | "ai">("all");
+  const [cartoonSubTab, setCartoonSubTab] = useState<"all" | "favorites" | "recent" | CartoonSubCategory | "ai">("all");
   const [assetSearchQuery, setAssetSearchQuery] = useState("");
   const [assetPage, setAssetPage] = useState(1);
   const [glyphStyle, setGlyphStyle] = useState<GlyphStyle>("3d");
@@ -186,6 +237,24 @@ export function AiImageEditPage({
       const raw = localStorage.getItem("lumina_ai_bw_stickers_v1");
       if (!raw) return [];
       const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("lumina_fav_assets_v1");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [recentIds, setRecentIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("lumina_recent_assets_v1");
+      const parsed = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -212,6 +281,26 @@ export function AiImageEditPage({
   const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
+  const [pageBorderId, setPageBorderId] = useState<PageBorderId>("none");
+  const [drawStrokes, setDrawStrokes] = useState<CanvasDrawStroke[]>([]);
+  const [activeDrawStroke, setActiveDrawStroke] = useState<CanvasDrawStroke | null>(null);
+  const [canvasTool, setCanvasTool] = useState<"select" | "ink" | "whiteout">("select");
+  const [brushSize, setBrushSize] = useState<number>(7);
+  const [canvasZoom, setCanvasZoom] = useState<number>(1);
+  const [showMarginGrid, setShowMarginGrid] = useState<boolean>(false);
+
+  const [historyPast, setHistoryPast] = useState<EditorSnapshot[]>([]);
+  const [historyFuture, setHistoryFuture] = useState<EditorSnapshot[]>([]);
+
+  const [snapGuides, setSnapGuides] = useState({
+    vCenter: false,
+    hCenter: false,
+    leftMargin: false,
+    rightMargin: false,
+    topMargin: false,
+    bottomMargin: false,
+  });
+
   const [stageDims, setStageDims] = useState<{ width: number; height: number }>({
     width: 440,
     height: 560,
@@ -225,6 +314,23 @@ export function AiImageEditPage({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const interactionRef = useRef<{
+    kind: "move-layer" | "resize-layer" | "rotate-layer" | "move-text" | "draw";
+    targetId?: string;
+    startClientX: number;
+    startClientY: number;
+    origX: number;
+    origY: number;
+    origScale: number;
+    origRotation: number;
+    startDist: number;
+    startAngle: number;
+    centerClientX: number;
+    centerClientY: number;
+    stageRect: DOMRect;
+    preSnapshot: EditorSnapshot;
+    moved: boolean;
+  } | null>(null);
 
   const coloringDims = getColoringDimensions(pageSize, dpi);
   const coloringConfig: AiEditColoringConfig = {
@@ -238,6 +344,60 @@ export function AiImageEditPage({
   const activeTextLayer = textLayers.find((t) => t.id === activeTextId) || null;
   const baseScale = Math.min(stageDims.width, stageDims.height) / 1000;
 
+  const currentSnapshot = useCallback(
+    (): EditorSnapshot => ({
+      layers,
+      textLayers,
+      pageBorderId,
+      drawStrokes,
+    }),
+    [layers, textLayers, pageBorderId, drawStrokes]
+  );
+
+  const pushHistory = useCallback((snapshot: EditorSnapshot) => {
+    setHistoryPast((prev) => [...prev.slice(-39), snapshot]);
+    setHistoryFuture([]);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    setHistoryPast((prev) => {
+      if (prev.length === 0) return prev;
+      const previous = prev[prev.length - 1];
+      setHistoryFuture((fut) => [currentSnapshot(), ...fut.slice(0, 39)]);
+      setLayers(previous.layers);
+      setTextLayers(previous.textLayers);
+      setPageBorderId(previous.pageBorderId);
+      setDrawStrokes(previous.drawStrokes);
+      return prev.slice(0, -1);
+    });
+  }, [currentSnapshot]);
+
+  const handleRedo = useCallback(() => {
+    setHistoryFuture((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev[0];
+      setHistoryPast((past) => [...past.slice(-39), currentSnapshot()]);
+      setLayers(next.layers);
+      setTextLayers(next.textLayers);
+      setPageBorderId(next.pageBorderId);
+      setDrawStrokes(next.drawStrokes);
+      return prev.slice(1);
+    });
+  }, [currentSnapshot]);
+
+  const clearCanvasEdits = () => {
+    setEditPlan(null);
+    setLayers([]);
+    setActiveLayerId(null);
+    setTextLayers([]);
+    setActiveTextId(null);
+    setPageBorderId("none");
+    setDrawStrokes([]);
+    setActiveDrawStroke(null);
+    setHistoryPast([]);
+    setHistoryFuture([]);
+  };
+
   useEffect(() => {
     try {
       localStorage.setItem("lumina_ai_bw_stickers_v1", JSON.stringify(customAiAssets));
@@ -245,6 +405,32 @@ export function AiImageEditPage({
       // Ignore storage quota issues
     }
   }, [customAiAssets]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("lumina_fav_assets_v1", JSON.stringify(favoriteIds));
+    } catch {
+      // Ignore storage quota issues
+    }
+  }, [favoriteIds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("lumina_recent_assets_v1", JSON.stringify(recentIds));
+    } catch {
+      // Ignore storage quota issues
+    }
+  }, [recentIds]);
+
+  const toggleFavoriteAsset = (assetId: string) => {
+    setFavoriteIds((prev) =>
+      prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [assetId, ...prev]
+    );
+  };
+
+  const recordRecentAsset = (assetId: string) => {
+    setRecentIds((prev) => [assetId, ...prev.filter((id) => id !== assetId)].slice(0, 12));
+  };
 
   useEffect(() => {
     if (initialPhoto) {
@@ -259,11 +445,7 @@ export function AiImageEditPage({
       if (initialPhoto.pageSize) setPageSize(initialPhoto.pageSize);
       if (initialPhoto.dpi === 300 || initialPhoto.dpi === 350) setDpi(initialPhoto.dpi);
       if (initialPhoto.colorMode) setColorMode(initialPhoto.colorMode);
-      setEditPlan(null);
-      setLayers([]);
-      setActiveLayerId(null);
-      setTextLayers([]);
-      setActiveTextId(null);
+      clearCanvasEdits();
       setErrorMsg(null);
       setNoticeMsg(null);
     }
@@ -327,11 +509,7 @@ export function AiImageEditPage({
         height,
         aspectRatio: `${width}:${height}`,
       });
-      setEditPlan(null);
-      setLayers([]);
-      setActiveLayerId(null);
-      setTextLayers([]);
-      setActiveTextId(null);
+      clearCanvasEdits();
       setInstruction("");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Unable to load selected image.");
@@ -347,11 +525,7 @@ export function AiImageEditPage({
       height: photo.height,
       aspectRatio: photo.aspectRatio,
     });
-    setEditPlan(null);
-    setLayers([]);
-    setActiveLayerId(null);
-    setTextLayers([]);
-    setActiveTextId(null);
+    clearCanvasEdits();
     setErrorMsg(null);
     setNoticeMsg(null);
   };
@@ -378,11 +552,7 @@ export function AiImageEditPage({
       height: whiteCanvasDims.height,
       aspectRatio: whiteCanvasDims.aspectRatio,
     });
-    setEditPlan(null);
-    setLayers([]);
-    setActiveLayerId(null);
-    setTextLayers([]);
-    setActiveTextId(null);
+    clearCanvasEdits();
     setErrorMsg(null);
     setNoticeMsg(null);
   };
@@ -462,22 +632,29 @@ export function AiImageEditPage({
       return;
     }
 
+    pushHistory(currentSnapshot());
+    recordRecentAsset(asset.id);
+
     const newLayer: EditOverlayLayer = {
       id: `layer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       label: asset.label,
       category: asset.mode === "cartoon" ? "cartoon" : "sticker",
       src: resolveAssetDataUrl(asset),
-      x: 50 + (Math.random() * 14 - 7),
-      y: 28 + (Math.random() * 14 - 7),
+      x: 50 + (Math.random() * 12 - 6),
+      y: 34 + (Math.random() * 12 - 6),
       widthPct: asset.defaultWidthPct,
       aspectRatio: asset.aspectRatio,
       scale: 1,
       rotation: 0,
       flipH: false,
       opacity: 1,
+      locked: false,
+      hidden: false,
     };
     setLayers((prev) => [...prev, newLayer]);
     setActiveLayerId(newLayer.id);
+    setActiveTextId(null);
+    setCanvasTool("select");
     setShowOriginalOnly(false);
     setErrorMsg(null);
   };
@@ -527,38 +704,56 @@ export function AiImageEditPage({
     setCustomAiAssets((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const updateActiveLayer = (patch: Partial<EditOverlayLayer>) => {
+  const updateActiveLayer = (patch: Partial<EditOverlayLayer>, recordUndo = false) => {
     if (!activeLayerId) return;
+    if (recordUndo) pushHistory(currentSnapshot());
     setLayers((prev) =>
       prev.map((l) => (l.id === activeLayerId ? { ...l, ...patch } : l))
     );
   };
 
-  const handleDuplicateActiveLayer = () => {
+  const toggleLayerLock = (id: string) => {
+    pushHistory(currentSnapshot());
+    setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, locked: !l.locked } : l)));
+  };
+
+  const toggleLayerVisibility = (id: string) => {
+    pushHistory(currentSnapshot());
+    setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, hidden: !l.hidden } : l)));
+  };
+
+  const handleDuplicateActiveLayer = useCallback(() => {
     if (!activeLayer) return;
+    pushHistory(currentSnapshot());
     const copy: EditOverlayLayer = {
       ...activeLayer,
       id: `layer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       label: `${activeLayer.label} (Copy)`,
-      x: Math.min(92, activeLayer.x + 6),
-      y: Math.min(92, activeLayer.y + 6),
+      x: Math.min(92, activeLayer.x + 5),
+      y: Math.min(92, activeLayer.y + 5),
+      locked: false,
     };
     setLayers((prev) => [...prev, copy]);
     setActiveLayerId(copy.id);
-  };
+  }, [activeLayer, currentSnapshot, pushHistory]);
 
-  const handleDeleteLayer = (id: string) => {
-    setLayers((prev) => {
-      const next = prev.filter((l) => l.id !== id);
-      if (activeLayerId === id) {
-        setActiveLayerId(next[next.length - 1]?.id || null);
-      }
-      return next;
-    });
-  };
+  const handleDeleteLayer = useCallback(
+    (id: string) => {
+      pushHistory(currentSnapshot());
+      setLayers((prev) => {
+        const next = prev.filter((l) => l.id !== id);
+        if (activeLayerId === id) {
+          setActiveLayerId(next[next.length - 1]?.id || null);
+        }
+        return next;
+      });
+    },
+    [activeLayerId, currentSnapshot, pushHistory]
+  );
 
   const handleMoveLayerOrder = (direction: "up" | "down") => {
     if (!activeLayerId) return;
+    pushHistory(currentSnapshot());
     setLayers((prev) => {
       const idx = prev.findIndex((l) => l.id === activeLayerId);
       if (idx < 0) return prev;
@@ -576,10 +771,12 @@ export function AiImageEditPage({
       setErrorMsg("Please upload or select an image first.");
       return;
     }
+    pushHistory(currentSnapshot());
     const next = createAiEditTextLayer(textLayers.length + 1, coloringEnabled);
     setTextLayers((prev) => [...prev, next]);
     setActiveTextId(next.id);
     setActiveLayerId(null);
+    setCanvasTool("select");
     setShowOriginalOnly(false);
     setErrorMsg(null);
   };
@@ -592,9 +789,10 @@ export function AiImageEditPage({
     );
   };
 
-  const handleDuplicateTextLayer = () => {
+  const handleDuplicateTextLayer = useCallback(() => {
     const target = activeTextLayer || textLayers[0];
     if (!target) return;
+    pushHistory(currentSnapshot());
     const copy: TextLayer = {
       ...target,
       id: `aitext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -603,17 +801,21 @@ export function AiImageEditPage({
     };
     setTextLayers((prev) => [...prev, copy]);
     setActiveTextId(copy.id);
-  };
+  }, [activeTextLayer, textLayers, currentSnapshot, pushHistory]);
 
-  const handleDeleteTextLayer = (id: string) => {
-    setTextLayers((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      if (activeTextId === id) {
-        setActiveTextId(next[next.length - 1]?.id || null);
-      }
-      return next;
-    });
-  };
+  const handleDeleteTextLayer = useCallback(
+    (id: string) => {
+      pushHistory(currentSnapshot());
+      setTextLayers((prev) => {
+        const next = prev.filter((t) => t.id !== id);
+        if (activeTextId === id) {
+          setActiveTextId(next[next.length - 1]?.id || null);
+        }
+        return next;
+      });
+    },
+    [activeTextId, currentSnapshot, pushHistory]
+  );
 
   const handleSelectObject = (layerId: string) => {
     setActiveLayerId(layerId);
@@ -623,6 +825,406 @@ export function AiImageEditPage({
   const handleSelectText = (layerId: string) => {
     setActiveTextId(layerId);
     setActiveLayerId(null);
+  };
+
+  const handleSelectPageBorder = (borderId: PageBorderId) => {
+    if (borderId === pageBorderId) return;
+    pushHistory(currentSnapshot());
+    setPageBorderId(borderId);
+    setShowOriginalOnly(false);
+  };
+
+  const handleClearDrawStrokes = () => {
+    if (drawStrokes.length === 0) return;
+    pushHistory(currentSnapshot());
+    setDrawStrokes([]);
+  };
+
+  const handleUndoLastStroke = () => {
+    if (drawStrokes.length === 0) return;
+    pushHistory(currentSnapshot());
+    setDrawStrokes((prev) => prev.slice(0, -1));
+  };
+
+  // Global keyboard shortcuts (Undo/Redo, Duplicate, Delete, Arrow Nudge, Escape)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "d") {
+        if (activeLayer) {
+          e.preventDefault();
+          handleDuplicateActiveLayer();
+        } else if (activeTextLayer) {
+          e.preventDefault();
+          handleDuplicateTextLayer();
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        setActiveLayerId(null);
+        setActiveTextId(null);
+        setCanvasTool("select");
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (activeLayer && !activeLayer.locked) {
+          e.preventDefault();
+          handleDeleteLayer(activeLayer.id);
+        } else if (activeTextLayer) {
+          e.preventDefault();
+          handleDeleteTextLayer(activeTextLayer.id);
+        }
+        return;
+      }
+      if (
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown"
+      ) {
+        const step = e.shiftKey ? 5 : 1;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        if (activeLayer && !activeLayer.locked) {
+          e.preventDefault();
+          setLayers((prev) =>
+            prev.map((l) =>
+              l.id === activeLayer.id
+                ? {
+                    ...l,
+                    x: Math.max(2, Math.min(98, l.x + dx)),
+                    y: Math.max(2, Math.min(98, l.y + dy)),
+                  }
+                : l
+            )
+          );
+        } else if (activeTextLayer) {
+          e.preventDefault();
+          setTextLayers((prev) =>
+            prev.map((t) =>
+              t.id === activeTextLayer.id
+                ? {
+                    ...t,
+                    x: Math.max(2, Math.min(98, t.x + dx)),
+                    y: Math.max(2, Math.min(98, t.y + dy)),
+                  }
+                : t
+            )
+          );
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    activeLayer,
+    activeTextLayer,
+    handleUndo,
+    handleRedo,
+    handleDuplicateActiveLayer,
+    handleDuplicateTextLayer,
+    handleDeleteLayer,
+    handleDeleteTextLayer,
+  ]);
+
+  // Direct Canvas Pointer Engine (Move, Corner Resize, Top Rotate, Freehand Ink/Whiteout)
+  const applySnap = (val: number) => {
+    const threshold = 1.25;
+    if (Math.abs(val - 50) <= threshold) return { snapped: 50, hit: "center" as const };
+    if (Math.abs(val - 8) <= threshold) return { snapped: 8, hit: "min" as const };
+    if (Math.abs(val - 92) <= threshold) return { snapped: 92, hit: "max" as const };
+    return { snapped: val, hit: null };
+  };
+
+  const beginLayerDrag = (e: React.PointerEvent, layer: EditOverlayLayer) => {
+    if (canvasTool !== "select" || showOriginalOnly) return;
+    e.stopPropagation();
+    handleSelectObject(layer.id);
+    if (layer.locked) return;
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+    const rect = stageEl.getBoundingClientRect();
+    stageEl.setPointerCapture(e.pointerId);
+    interactionRef.current = {
+      kind: "move-layer",
+      targetId: layer.id,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      origX: layer.x,
+      origY: layer.y,
+      origScale: layer.scale,
+      origRotation: layer.rotation,
+      startDist: 1,
+      startAngle: 0,
+      centerClientX: rect.left + (layer.x / 100) * rect.width,
+      centerClientY: rect.top + (layer.y / 100) * rect.height,
+      stageRect: rect,
+      preSnapshot: currentSnapshot(),
+      moved: false,
+    };
+  };
+
+  const beginLayerResize = (e: React.PointerEvent, layer: EditOverlayLayer) => {
+    if (canvasTool !== "select" || showOriginalOnly || layer.locked) return;
+    e.stopPropagation();
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+    const rect = stageEl.getBoundingClientRect();
+    const cx = rect.left + (layer.x / 100) * rect.width;
+    const cy = rect.top + (layer.y / 100) * rect.height;
+    const startDist = Math.max(12, Math.hypot(e.clientX - cx, e.clientY - cy));
+    stageEl.setPointerCapture(e.pointerId);
+    interactionRef.current = {
+      kind: "resize-layer",
+      targetId: layer.id,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      origX: layer.x,
+      origY: layer.y,
+      origScale: layer.scale,
+      origRotation: layer.rotation,
+      startDist,
+      startAngle: 0,
+      centerClientX: cx,
+      centerClientY: cy,
+      stageRect: rect,
+      preSnapshot: currentSnapshot(),
+      moved: false,
+    };
+  };
+
+  const beginLayerRotate = (e: React.PointerEvent, layer: EditOverlayLayer) => {
+    if (canvasTool !== "select" || showOriginalOnly || layer.locked) return;
+    e.stopPropagation();
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+    const rect = stageEl.getBoundingClientRect();
+    const cx = rect.left + (layer.x / 100) * rect.width;
+    const cy = rect.top + (layer.y / 100) * rect.height;
+    const startAngle = (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
+    stageEl.setPointerCapture(e.pointerId);
+    interactionRef.current = {
+      kind: "rotate-layer",
+      targetId: layer.id,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      origX: layer.x,
+      origY: layer.y,
+      origScale: layer.scale,
+      origRotation: layer.rotation,
+      startDist: 1,
+      startAngle,
+      centerClientX: cx,
+      centerClientY: cy,
+      stageRect: rect,
+      preSnapshot: currentSnapshot(),
+      moved: false,
+    };
+  };
+
+  const beginTextDrag = (e: React.PointerEvent, tl: TextLayer) => {
+    if (canvasTool !== "select" || showOriginalOnly) return;
+    e.stopPropagation();
+    handleSelectText(tl.id);
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+    const rect = stageEl.getBoundingClientRect();
+    stageEl.setPointerCapture(e.pointerId);
+    interactionRef.current = {
+      kind: "move-text",
+      targetId: tl.id,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      origX: tl.x,
+      origY: tl.y,
+      origScale: 1,
+      origRotation: tl.rotation,
+      startDist: 1,
+      startAngle: 0,
+      centerClientX: rect.left + (tl.x / 100) * rect.width,
+      centerClientY: rect.top + (tl.y / 100) * rect.height,
+      stageRect: rect,
+      preSnapshot: currentSnapshot(),
+      moved: false,
+    };
+  };
+
+  const handleStagePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (showOriginalOnly) return;
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+
+    if (canvasTool === "ink" || canvasTool === "whiteout") {
+      e.preventDefault();
+      const rect = stageEl.getBoundingClientRect();
+      const nx = Math.max(0, Math.min(1000, ((e.clientX - rect.left) / rect.width) * 1000));
+      const ny = Math.max(0, Math.min(1000, ((e.clientY - rect.top) / rect.height) * 1000));
+      stageEl.setPointerCapture(e.pointerId);
+      const newStroke: CanvasDrawStroke = {
+        id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        tool: canvasTool,
+        width: brushSize,
+        points: [{ x: nx, y: ny }],
+      };
+      setActiveDrawStroke(newStroke);
+      interactionRef.current = {
+        kind: "draw",
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        origX: 0,
+        origY: 0,
+        origScale: 1,
+        origRotation: 0,
+        startDist: 1,
+        startAngle: 0,
+        centerClientX: 0,
+        centerClientY: 0,
+        stageRect: rect,
+        preSnapshot: currentSnapshot(),
+        moved: true,
+      };
+      return;
+    }
+
+    setActiveLayerId(null);
+    setActiveTextId(null);
+  };
+
+  const handleStagePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const inter = interactionRef.current;
+    if (!inter) return;
+
+    if (inter.kind === "draw") {
+      const rect = inter.stageRect;
+      const nx = Math.max(0, Math.min(1000, ((e.clientX - rect.left) / rect.width) * 1000));
+      const ny = Math.max(0, Math.min(1000, ((e.clientY - rect.top) / rect.height) * 1000));
+      setActiveDrawStroke((prev) => {
+        if (!prev) return prev;
+        const last = prev.points[prev.points.length - 1];
+        if (last && Math.hypot(nx - last.x, ny - last.y) < 3.5) return prev;
+        return { ...prev, points: [...prev.points, { x: nx, y: ny }] };
+      });
+      return;
+    }
+
+    const dxPct = ((e.clientX - inter.startClientX) / inter.stageRect.width) * 100;
+    const dyPct = ((e.clientY - inter.startClientY) / inter.stageRect.height) * 100;
+
+    if (inter.kind === "move-layer" && inter.targetId) {
+      if (Math.abs(dxPct) > 0.2 || Math.abs(dyPct) > 0.2) inter.moved = true;
+      const rawX = Math.max(2, Math.min(98, inter.origX + dxPct));
+      const rawY = Math.max(2, Math.min(98, inter.origY + dyPct));
+      const sx = applySnap(rawX);
+      const sy = applySnap(rawY);
+      setSnapGuides({
+        vCenter: sx.hit === "center",
+        hCenter: sy.hit === "center",
+        leftMargin: sx.hit === "min",
+        rightMargin: sx.hit === "max",
+        topMargin: sy.hit === "min",
+        bottomMargin: sy.hit === "max",
+      });
+      setLayers((prev) =>
+        prev.map((l) => (l.id === inter.targetId ? { ...l, x: sx.snapped, y: sy.snapped } : l))
+      );
+    } else if (inter.kind === "move-text" && inter.targetId) {
+      if (Math.abs(dxPct) > 0.2 || Math.abs(dyPct) > 0.2) inter.moved = true;
+      const rawX = Math.max(2, Math.min(98, inter.origX + dxPct));
+      const rawY = Math.max(2, Math.min(98, inter.origY + dyPct));
+      const sx = applySnap(rawX);
+      const sy = applySnap(rawY);
+      setSnapGuides({
+        vCenter: sx.hit === "center",
+        hCenter: sy.hit === "center",
+        leftMargin: sx.hit === "min",
+        rightMargin: sx.hit === "max",
+        topMargin: sy.hit === "min",
+        bottomMargin: sy.hit === "max",
+      });
+      setTextLayers((prev) =>
+        prev.map((t) => (t.id === inter.targetId ? { ...t, x: sx.snapped, y: sy.snapped } : t))
+      );
+    } else if (inter.kind === "resize-layer" && inter.targetId) {
+      inter.moved = true;
+      const dist = Math.max(10, Math.hypot(e.clientX - inter.centerClientX, e.clientY - inter.centerClientY));
+      const nextScale = Math.max(0.25, Math.min(2.5, inter.origScale * (dist / inter.startDist)));
+      setLayers((prev) =>
+        prev.map((l) => (l.id === inter.targetId ? { ...l, scale: Number(nextScale.toFixed(2)) } : l))
+      );
+    } else if (inter.kind === "rotate-layer" && inter.targetId) {
+      inter.moved = true;
+      const angle = (Math.atan2(e.clientY - inter.centerClientY, e.clientX - inter.centerClientX) * 180) / Math.PI;
+      let nextRot = Math.round(inter.origRotation + (angle - inter.startAngle));
+      while (nextRot > 180) nextRot -= 360;
+      while (nextRot < -180) nextRot += 360;
+      // Gentle snap to 0°, ±45°, ±90°, ±180°
+      for (const snapDeg of [-180, -90, -45, 0, 45, 90, 180]) {
+        if (Math.abs(nextRot - snapDeg) <= 4) {
+          nextRot = snapDeg;
+          break;
+        }
+      }
+      setLayers((prev) =>
+        prev.map((l) => (l.id === inter.targetId ? { ...l, rotation: nextRot } : l))
+      );
+    }
+  };
+
+  const finishStagePointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    const inter = interactionRef.current;
+    if (!inter) return;
+    interactionRef.current = null;
+    if (stageRef.current?.hasPointerCapture(e.pointerId)) {
+      stageRef.current.releasePointerCapture(e.pointerId);
+    }
+    setSnapGuides({
+      vCenter: false,
+      hCenter: false,
+      leftMargin: false,
+      rightMargin: false,
+      topMargin: false,
+      bottomMargin: false,
+    });
+
+    if (inter.kind === "draw") {
+      setActiveDrawStroke((stroke) => {
+        if (stroke && stroke.points.length > 0) {
+          pushHistory(inter.preSnapshot);
+          setDrawStrokes((prev) => [...prev, stroke]);
+        }
+        return null;
+      });
+      return;
+    }
+
+    if (inter.moved) {
+      pushHistory(inter.preSnapshot);
+    }
   };
 
   const renderFinalComposite = async () => {
@@ -635,8 +1237,44 @@ export function AiImageEditPage({
       baseStage.height,
       layers,
       coloringConfig,
-      textLayers
+      textLayers,
+      {
+        borderId: pageBorderId,
+        drawStrokes,
+      }
     );
+  };
+
+  const buildSavedPhotoItem = (finalImg: { dataUrl: string; width: number; height: number }): PhotoItem => {
+    const now = Date.now();
+    return {
+      id: `photo-${now}-${Math.random().toString(36).slice(2, 7)}`,
+      title: `${sourcePhoto?.title || "Coloring Page"} (Edited)`,
+      prompt:
+        instruction.trim() ||
+        editPlan?.editSummary ||
+        `Coloring Page Edit (${layers.length} layers)`,
+      dataUrl: finalImg.dataUrl,
+      width: finalImg.width,
+      height: finalImg.height,
+      aspectRatio: coloringEnabled
+        ? pageSize === "a4"
+          ? "A4"
+          : "US Letter"
+        : sourcePhoto?.aspectRatio || "4:3",
+      mood: coloringEnabled
+        ? colorMode === "bw"
+          ? "B&W Line Art"
+          : "Grayscale Line Art"
+        : "AI & Sticker Edit",
+      dpi: coloringEnabled ? dpi : undefined,
+      pageSize: coloringEnabled ? pageSize : undefined,
+      colorMode: coloringEnabled ? colorMode : undefined,
+      isColoringPage: coloringEnabled,
+      kind: coloringEnabled ? "coloring" : "edited",
+      createdAt: now,
+      updatedAt: now,
+    };
   };
 
   const handleBakeAndContinue = async () => {
@@ -652,13 +1290,9 @@ export function AiImageEditPage({
         height: baked.height,
         aspectRatio: coloringEnabled ? (pageSize === "a4" ? "A4" : "US Letter") : sourcePhoto.aspectRatio,
       });
-      setEditPlan(null);
-      setLayers([]);
-      setActiveLayerId(null);
-      setTextLayers([]);
-      setActiveTextId(null);
+      clearCanvasEdits();
       setInstruction("");
-      setSavedToast("Baked all layers & text into base image — ready for more edits!");
+      setSavedToast("Baked all layers, borders & strokes into base image!");
       setTimeout(() => setSavedToast(null), 3000);
     } finally {
       setExporting(false);
@@ -670,38 +1304,23 @@ export function AiImageEditPage({
     setExporting(true);
     try {
       const finalImg = await renderFinalComposite();
-      const now = Date.now();
-      const item: PhotoItem = {
-        id: `photo-${now}-${Math.random().toString(36).slice(2, 7)}`,
-        title: `${sourcePhoto.title} (Edited)`,
-        prompt:
-          instruction.trim() ||
-          editPlan?.editSummary ||
-          `Manual & Sticker Edit (${layers.length} layers)`,
-        dataUrl: finalImg.dataUrl,
-        width: finalImg.width,
-        height: finalImg.height,
-        aspectRatio: coloringEnabled
-          ? pageSize === "a4"
-            ? "A4"
-            : "US Letter"
-          : sourcePhoto.aspectRatio,
-        mood: coloringEnabled
-          ? colorMode === "bw"
-            ? "B&W Line Art"
-            : "Grayscale Line Art"
-          : "AI & Sticker Edit",
-        dpi: coloringEnabled ? dpi : undefined,
-        pageSize: coloringEnabled ? pageSize : undefined,
-        colorMode: coloringEnabled ? colorMode : undefined,
-        isColoringPage: coloringEnabled,
-        kind: coloringEnabled ? "coloring" : "edited",
-        createdAt: now,
-        updatedAt: now,
-      };
+      const item = buildSavedPhotoItem(finalImg);
       await onSaveNewPhoto(item);
       setSavedToast("Saved Coloring Book edited page to Photo Hall.");
       setTimeout(() => setSavedToast(null), 3000);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleSaveAndSend = async (target: "book" | "design") => {
+    if (!sourcePhoto || !baseStage || !onSendToPage) return;
+    setExporting(true);
+    try {
+      const finalImg = await renderFinalComposite();
+      const item = buildSavedPhotoItem(finalImg);
+      await onSaveNewPhoto(item);
+      onSendToPage(target, item);
     } finally {
       setExporting(false);
     }
@@ -780,9 +1399,60 @@ export function AiImageEditPage({
     [alphabetAssets, numberAssets, symbolAssets]
   );
 
+  const stickerLookupMap = useMemo(() => {
+    const map = new Map<string, StickerAsset>();
+    for (const item of [...aiStickerAssets, ...allStickersCatalog]) {
+      map.set(item.id, item);
+    }
+    return map;
+  }, [aiStickerAssets, allStickersCatalog]);
+
+  const cartoonLookupMap = useMemo(() => {
+    const map = new Map<string, StickerAsset>();
+    for (const item of [...aiCartoonAssets, ...CARTOON_ASSETS]) {
+      map.set(item.id, item);
+    }
+    return map;
+  }, [aiCartoonAssets]);
+
+  const favoriteStickerAssets = useMemo(
+    () => favoriteIds.map((id) => stickerLookupMap.get(id)).filter((a): a is StickerAsset => Boolean(a)),
+    [favoriteIds, stickerLookupMap]
+  );
+  const recentStickerAssets = useMemo(
+    () => recentIds.map((id) => stickerLookupMap.get(id)).filter((a): a is StickerAsset => Boolean(a)),
+    [recentIds, stickerLookupMap]
+  );
+  const favoriteCartoonAssets = useMemo(
+    () => favoriteIds.map((id) => cartoonLookupMap.get(id)).filter((a): a is StickerAsset => Boolean(a)),
+    [favoriteIds, cartoonLookupMap]
+  );
+  const recentCartoonAssets = useMemo(
+    () => recentIds.map((id) => cartoonLookupMap.get(id)).filter((a): a is StickerAsset => Boolean(a)),
+    [recentIds, cartoonLookupMap]
+  );
+
+  const borderThumbnails = useMemo(() => {
+    const thumbs: Record<PageBorderId, string> = {} as Record<PageBorderId, string>;
+    for (const b of PAGE_BORDERS) {
+      thumbs[b.id] = b.id === "none" ? "" : buildPageBorderDataUrl(b.id, 220, 285);
+    }
+    return thumbs;
+  }, []);
+
+  const activeBorderDataUrl = useMemo(() => {
+    if (pageBorderId === "none") return "";
+    const aspectH = baseStage
+      ? Math.round((1000 * baseStage.height) / Math.max(1, baseStage.width))
+      : 1294;
+    return buildPageBorderDataUrl(pageBorderId, 1000, aspectH);
+  }, [pageBorderId, baseStage]);
+
   const stickerCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = {
       all: allStickersCatalog.length,
+      favorites: favoriteStickerAssets.length,
+      recent: recentStickerAssets.length,
       alphabet: alphabetAssets.length,
       numbers: numberAssets.length,
       symbols: symbolAssets.length,
@@ -795,18 +1465,28 @@ export function AiImageEditPage({
       counts[item.category] = (counts[item.category] || 0) + 1;
     }
     return counts;
-  }, [allStickersCatalog.length, alphabetAssets.length, numberAssets.length, symbolAssets.length, aiStickerAssets.length]);
+  }, [
+    allStickersCatalog.length,
+    favoriteStickerAssets.length,
+    recentStickerAssets.length,
+    alphabetAssets.length,
+    numberAssets.length,
+    symbolAssets.length,
+    aiStickerAssets.length,
+  ]);
 
   const cartoonCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = {
       all: CARTOON_ASSETS.length,
+      favorites: favoriteCartoonAssets.length,
+      recent: recentCartoonAssets.length,
       ai: aiCartoonAssets.length,
     };
     for (const item of CARTOON_ASSETS) {
       counts[item.category] = (counts[item.category] || 0) + 1;
     }
     return counts;
-  }, [aiCartoonAssets.length]);
+  }, [aiCartoonAssets.length, favoriteCartoonAssets.length, recentCartoonAssets.length]);
 
   const ASSET_PAGE_SIZE = 24;
 
@@ -829,6 +1509,10 @@ export function AiImageEditPage({
       switch (stickerSubTab) {
         case "all":
           return allStickersCatalog;
+        case "favorites":
+          return favoriteStickerAssets;
+        case "recent":
+          return recentStickerAssets;
         case "alphabet":
           return alphabetAssets;
         case "numbers":
@@ -848,6 +1532,8 @@ export function AiImageEditPage({
       }
     }
 
+    if (cartoonSubTab === "favorites") return favoriteCartoonAssets;
+    if (cartoonSubTab === "recent") return recentCartoonAssets;
     if (cartoonSubTab === "ai") return aiCartoonAssets;
     if (cartoonSubTab === "all") return CARTOON_ASSETS;
     return CARTOON_ASSETS.filter((c) => c.category === cartoonSubTab);
@@ -857,6 +1543,10 @@ export function AiImageEditPage({
     stickerSubTab,
     cartoonSubTab,
     allStickersCatalog,
+    favoriteStickerAssets,
+    recentStickerAssets,
+    favoriteCartoonAssets,
+    recentCartoonAssets,
     alphabetAssets,
     numberAssets,
     symbolAssets,
@@ -1119,31 +1809,43 @@ export function AiImageEditPage({
             </div>
           </div>
 
-          {/* Primary Tool Tabs: AI Edit | Stickers */}
-          <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100 rounded-xl">
+          {/* Primary Tool Tabs: AI Edit | Stickers | Frames & Draw */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-100 rounded-xl">
             <button
               type="button"
               onClick={() => setToolTab("ai")}
-              className={`min-h-[38px] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              className={`min-h-[38px] inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                 toolTab === "ai"
                   ? "bg-zinc-950 text-white shadow-sm"
                   : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
-              <Wand2 className="w-3.5 h-3.5" />
+              <Wand2 className="w-3.5 h-3.5 shrink-0" />
               <span>AI Edit</span>
             </button>
             <button
               type="button"
               onClick={() => setToolTab("stickers")}
-              className={`min-h-[38px] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              className={`min-h-[38px] inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                 toolTab === "stickers"
                   ? "bg-zinc-950 text-white shadow-sm"
                   : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
-              <Sticker className="w-3.5 h-3.5" />
+              <Sticker className="w-3.5 h-3.5 shrink-0" />
               <span>Stickers</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setToolTab("frames")}
+              className={`min-h-[38px] inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                toolTab === "frames"
+                  ? "bg-zinc-950 text-white shadow-sm"
+                  : "text-zinc-600 hover:text-zinc-950"
+              }`}
+            >
+              <Frame className="w-3.5 h-3.5 shrink-0" />
+              <span>Frames</span>
             </button>
           </div>
 
@@ -1205,7 +1907,7 @@ export function AiImageEditPage({
                 )}
               </button>
             </div>
-          ) : (
+          ) : toolTab === "stickers" ? (
             <div className="space-y-3.5">
               {/* 2-Tab Mode Switcher: Stickers | Cartoons (Pure B&W, Zero Emojis) */}
               <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100 rounded-xl">
@@ -1309,7 +2011,7 @@ export function AiImageEditPage({
                 )}
               </div>
 
-              {/* Sub-category Filters (hidden only while actively searching across all items) */}
+              {/* Sub-category Filters (with Favorites & Recent) */}
               {assetSearchQuery.trim() ? (
                 <div className="flex items-center justify-between text-[11px] text-zinc-600 px-1">
                   <span className="tabular-nums">
@@ -1327,6 +2029,30 @@ export function AiImageEditPage({
               ) : stickerMode === "sticker" ? (
                 <div className="space-y-2.5">
                   <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setStickerSubTab("favorites")}
+                      className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                        stickerSubTab === "favorites"
+                          ? "bg-zinc-950 text-white border-zinc-950"
+                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                      }`}
+                    >
+                      <Star className="w-3 h-3" />
+                      <span>Favorites ({stickerCategoryCounts.favorites ?? 0})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStickerSubTab("recent")}
+                      className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                        stickerSubTab === "recent"
+                          ? "bg-zinc-950 text-white border-zinc-950"
+                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                      }`}
+                    >
+                      <Clock className="w-3 h-3" />
+                      <span>Recent ({stickerCategoryCounts.recent ?? 0})</span>
+                    </button>
                     {STICKER_CATEGORIES.map((cat) => {
                       const active = stickerSubTab === cat.id;
                       const count = stickerCategoryCounts[cat.id] ?? 0;
@@ -1392,6 +2118,30 @@ export function AiImageEditPage({
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setCartoonSubTab("favorites")}
+                    className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                      cartoonSubTab === "favorites"
+                        ? "bg-zinc-950 text-white border-zinc-950"
+                        : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                    }`}
+                  >
+                    <Star className="w-3 h-3" />
+                    <span>Favorites ({cartoonCategoryCounts.favorites ?? 0})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCartoonSubTab("recent")}
+                    className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                      cartoonSubTab === "recent"
+                        ? "bg-zinc-950 text-white border-zinc-950"
+                        : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                    }`}
+                  >
+                    <Clock className="w-3 h-3" />
+                    <span>Recent ({cartoonCategoryCounts.recent ?? 0})</span>
+                  </button>
                   {CARTOON_CATEGORIES.map((cat) => {
                     const active = cartoonSubTab === cat.id;
                     const count = cartoonCategoryCounts[cat.id] ?? 0;
@@ -1430,11 +2180,19 @@ export function AiImageEditPage({
                   <p className="text-xs font-semibold text-zinc-800">
                     {assetSearchQuery.trim()
                       ? `No ${stickerMode === "sticker" ? "stickers" : "cartoons"} match "${assetSearchQuery.trim()}"`
+                      : (stickerMode === "sticker" ? stickerSubTab : cartoonSubTab) === "favorites"
+                      ? `No favorite ${stickerMode === "sticker" ? "stickers" : "cartoons"} saved yet`
+                      : (stickerMode === "sticker" ? stickerSubTab : cartoonSubTab) === "recent"
+                      ? `No recently used ${stickerMode === "sticker" ? "stickers" : "cartoons"} yet`
                       : `No AI ${stickerMode === "sticker" ? "stickers" : "cartoons"} generated yet`}
                   </p>
                   <p className="text-[11px] text-zinc-500">
                     {assetSearchQuery.trim()
                       ? "Try another keyword or clear search to browse all categories."
+                      : (stickerMode === "sticker" ? stickerSubTab : cartoonSubTab) === "favorites"
+                      ? "Tap the star icon on any sticker or cartoon to pin it here."
+                      : (stickerMode === "sticker" ? stickerSubTab : cartoonSubTab) === "recent"
+                      ? "Items you place onto the stage automatically appear here."
                       : `Type any idea above and click Generate to create a pure black-and-white coloring ${stickerMode}.`}
                   </p>
                   {assetSearchQuery.trim() && (
@@ -1462,6 +2220,7 @@ export function AiImageEditPage({
                   >
                     {paginatedAssets.map((asset) => {
                       const isAiSaved = asset.id.startsWith("ai-");
+                      const isFav = favoriteIds.includes(asset.id);
                       return (
                         <div key={asset.id} className="relative group">
                           <button
@@ -1478,6 +2237,22 @@ export function AiImageEditPage({
                             <span className="text-[10px] font-medium text-zinc-700 text-center leading-tight line-clamp-1 w-full">
                               {asset.label}
                             </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteAsset(asset.id);
+                            }}
+                            title={isFav ? `Remove ${asset.label} from Favorites` : `Star ${asset.label}`}
+                            aria-label={isFav ? `Unfavorite ${asset.label}` : `Favorite ${asset.label}`}
+                            className={`absolute top-1 left-1 p-1 rounded-md bg-white/95 border border-zinc-200 cursor-pointer transition-opacity ${
+                              isFav
+                                ? "opacity-100 text-amber-500 border-amber-300"
+                                : "opacity-0 group-hover:opacity-100 focus:opacity-100 text-zinc-400 hover:text-amber-500"
+                            }`}
+                          >
+                            <Star className={`w-3 h-3 ${isFav ? "fill-amber-400" : ""}`} />
                           </button>
                           {isAiSaved && (
                             <button
@@ -1530,8 +2305,160 @@ export function AiImageEditPage({
               )}
 
               <p className="text-[11px] text-zinc-500">
-                All {allStickersCatalog.length} stickers &amp; {CARTOON_ASSETS.length} cartoons are pure black-and-white coloring line art. Tap any item to place it onto the canvas.
+                All {allStickersCatalog.length} stickers &amp; {CARTOON_ASSETS.length} cartoons are pure black-and-white coloring line art. Tap to place, star to pin favorites.
               </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Freehand B&W Ink Pen & Whiteout Brush Controls */}
+              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-zinc-900">
+                    Canvas Brush &amp; Touch-Up
+                  </span>
+                  <span className="text-[11px] text-zinc-500 tabular-nums">
+                    {drawStrokes.length} {drawStrokes.length === 1 ? "stroke" : "strokes"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-200/70 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setCanvasTool("select")}
+                    className={`min-h-[34px] inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md cursor-pointer whitespace-nowrap transition-colors ${
+                      canvasTool === "select"
+                        ? "bg-white text-zinc-950 shadow-sm"
+                        : "text-zinc-600 hover:text-zinc-950"
+                    }`}
+                  >
+                    <MousePointer2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Select</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCanvasTool("ink");
+                      setActiveLayerId(null);
+                      setActiveTextId(null);
+                      setShowOriginalOnly(false);
+                    }}
+                    className={`min-h-[34px] inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md cursor-pointer whitespace-nowrap transition-colors ${
+                      canvasTool === "ink"
+                        ? "bg-zinc-950 text-white shadow-sm"
+                        : "text-zinc-600 hover:text-zinc-950"
+                    }`}
+                  >
+                    <PenTool className="w-3.5 h-3.5 shrink-0" />
+                    <span>Ink Pen</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCanvasTool("whiteout");
+                      setActiveLayerId(null);
+                      setActiveTextId(null);
+                      setShowOriginalOnly(false);
+                    }}
+                    className={`min-h-[34px] inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md cursor-pointer whitespace-nowrap transition-colors ${
+                      canvasTool === "whiteout"
+                        ? "bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-300"
+                        : "text-zinc-600 hover:text-zinc-950"
+                    }`}
+                  >
+                    <Eraser className="w-3.5 h-3.5 shrink-0" />
+                    <span>Whiteout</span>
+                  </button>
+                </div>
+
+                <StepperControl
+                  compact
+                  label="Stroke Width"
+                  value={brushSize}
+                  min={2}
+                  max={28}
+                  step={1}
+                  unit="px"
+                  onChange={setBrushSize}
+                />
+
+                {drawStrokes.length > 0 && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleUndoLastStroke}
+                      className="flex-1 min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-zinc-800 bg-white border border-zinc-200 hover:border-zinc-400 rounded-lg cursor-pointer whitespace-nowrap"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                      <span>Undo Stroke</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearDrawStrokes}
+                      className="flex-1 min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-red-700 bg-white border border-red-200 hover:bg-red-50 rounded-lg cursor-pointer whitespace-nowrap"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Clear Strokes</span>
+                    </button>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-zinc-500 leading-relaxed">
+                  Use <strong>Ink Pen</strong> (#000000) to close coloring gaps or sketch details, and <strong>Whiteout</strong> (#FFFFFF) to erase stray black dots directly on stage.
+                </p>
+              </div>
+
+              {/* 12 Pure B&W Coloring Book Page Borders & Worksheet Layouts */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-900">
+                    Page Borders &amp; Worksheets ({PAGE_BORDERS.length - 1})
+                  </span>
+                  {pageBorderId !== "none" && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectPageBorder("none")}
+                      className="text-[11px] font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
+                    >
+                      Remove Frame
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+                  {PAGE_BORDERS.map((border) => {
+                    const active = pageBorderId === border.id;
+                    const thumb = borderThumbnails[border.id];
+                    return (
+                      <button
+                        key={border.id}
+                        type="button"
+                        onClick={() => handleSelectPageBorder(border.id)}
+                        title={border.description}
+                        className={`p-2 rounded-xl border transition-all cursor-pointer flex flex-col items-center gap-1.5 bg-white ${
+                          active
+                            ? "border-blue-600 ring-2 ring-blue-600/20"
+                            : "border-zinc-200 hover:border-zinc-500"
+                        }`}
+                      >
+                        <div className="w-12 h-14 rounded bg-white border border-zinc-200 flex items-center justify-center overflow-hidden">
+                          {border.id === "none" ? (
+                            <span className="text-[10px] font-medium text-zinc-400">None</span>
+                          ) : (
+                            <img
+                              src={thumb}
+                              alt={border.label}
+                              className="w-full h-full object-contain"
+                            />
+                          )}
+                        </div>
+                        <span className="text-[10px] font-semibold text-zinc-800 text-center leading-tight line-clamp-1 w-full">
+                          {border.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1619,8 +2546,8 @@ export function AiImageEditPage({
           )}
         </div>
 
-        {/* Right Panel: Word-Style Text & Bound Ribbon Banner + Interactive Stage */}
-        <div className="lg:col-span-8 space-y-4">
+        {/* Right Panel: Sticky Pro Stage + Text Ribbon */}
+        <div className="lg:col-span-8 space-y-4 lg:sticky lg:top-20">
           <TextBoundRibbon
             layers={textLayers}
             activeLayerId={activeTextId}
@@ -1638,52 +2565,146 @@ export function AiImageEditPage({
           />
 
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 sm:p-6 space-y-4">
+            {/* Stage Header & Utility Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-zinc-950">
                   Interactive Edit Stage
                 </span>
                 <span className="text-xs text-zinc-500 tabular-nums">
-                  {layers.length} {layers.length === 1 ? "object" : "objects"} · {textLayers.length} {textLayers.length === 1 ? "text" : "texts"} · Tap to select
+                  {layers.length} {layers.length === 1 ? "object" : "objects"} · {textLayers.length}{" "}
+                  {textLayers.length === 1 ? "text" : "texts"}
+                  {pageBorderId !== "none" ? " · Frame" : ""}
+                  {drawStrokes.length > 0 ? ` · ${drawStrokes.length} ink` : ""}
                 </span>
               </div>
 
               {sourcePhoto && (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {/* Undo / Redo */}
+                  <div className="inline-flex items-center rounded-lg border border-zinc-200 bg-white overflow-hidden">
+                    <button
+                      type="button"
+                      disabled={historyPast.length === 0}
+                      onClick={handleUndo}
+                      title="Undo (Ctrl+Z)"
+                      aria-label="Undo"
+                      className="min-h-[34px] px-2.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={historyFuture.length === 0}
+                      onClick={handleRedo}
+                      title="Redo (Ctrl+Shift+Z)"
+                      aria-label="Redo"
+                      className="min-h-[34px] px-2.5 text-zinc-700 hover:bg-zinc-100 border-l border-zinc-200 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <Redo2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Zoom Controls */}
+                  <div className="inline-flex items-center rounded-lg border border-zinc-200 bg-white overflow-hidden">
+                    <button
+                      type="button"
+                      disabled={canvasZoom <= 0.75}
+                      onClick={() => setCanvasZoom((z) => Math.max(0.75, Number((z - 0.25).toFixed(2))))}
+                      title="Zoom Out"
+                      aria-label="Zoom Out"
+                      className="min-h-[34px] px-2 text-zinc-700 hover:bg-zinc-100 disabled:opacity-35 cursor-pointer"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCanvasZoom(1)}
+                      title="Reset Zoom to 100%"
+                      className="min-h-[34px] px-2 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-100 border-x border-zinc-200 tabular-nums cursor-pointer whitespace-nowrap"
+                    >
+                      {Math.round(canvasZoom * 100)}%
+                    </button>
+                    <button
+                      type="button"
+                      disabled={canvasZoom >= 1.5}
+                      onClick={() => setCanvasZoom((z) => Math.min(1.5, Number((z + 0.25).toFixed(2))))}
+                      title="Zoom In"
+                      aria-label="Zoom In"
+                      className="min-h-[34px] px-2 text-zinc-700 hover:bg-zinc-100 disabled:opacity-35 cursor-pointer"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Printable Margin Guide Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowMarginGrid((v) => !v)}
+                    title="Toggle Safe Print Margin Guide"
+                    className={`min-h-[34px] inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border cursor-pointer whitespace-nowrap ${
+                      showMarginGrid
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                    }`}
+                  >
+                    <Grid className="w-3.5 h-3.5" />
+                    <span>Guides</span>
+                  </button>
+
+                  {/* Quick exit if drawing with Ink or Whiteout */}
+                  {canvasTool !== "select" && (
+                    <button
+                      type="button"
+                      onClick={() => setCanvasTool("select")}
+                      className="min-h-[34px] inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-white bg-zinc-950 hover:bg-zinc-800 rounded-lg cursor-pointer whitespace-nowrap"
+                    >
+                      <MousePointer2 className="w-3.5 h-3.5" />
+                      <span>Done {canvasTool === "ink" ? "Ink" : "Whiteout"}</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setEraserOpen(true)}
-                    className="min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 cursor-pointer"
+                    className="min-h-[34px] inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 cursor-pointer whitespace-nowrap"
                   >
                     <Eraser className="w-3.5 h-3.5" />
-                    <span>Select & Erase</span>
+                    <span>Select &amp; Erase</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowOriginalOnly((v) => !v)}
-                    className={`min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg border cursor-pointer ${
+                    className={`min-h-[34px] inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border cursor-pointer whitespace-nowrap ${
                       showOriginalOnly
                         ? "bg-zinc-950 text-white border-zinc-950"
                         : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
                     }`}
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>{showOriginalOnly ? "Viewing Original" : "Compare Original"}</span>
+                    <span>{showOriginalOnly ? "Viewing Original" : "Compare"}</span>
                   </button>
-                  {(layers.length > 0 || textLayers.length > 0 || editPlan) && (
+                  {(layers.length > 0 ||
+                    textLayers.length > 0 ||
+                    editPlan ||
+                    pageBorderId !== "none" ||
+                    drawStrokes.length > 0) && (
                     <button
                       type="button"
                       onClick={() => {
+                        pushHistory(currentSnapshot());
                         setEditPlan(null);
                         setLayers([]);
                         setActiveLayerId(null);
                         setTextLayers([]);
                         setActiveTextId(null);
+                        setPageBorderId("none");
+                        setDrawStrokes([]);
                       }}
-                      className="min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 rounded-lg border border-zinc-200 hover:border-zinc-400 cursor-pointer"
+                      className="min-h-[34px] inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 rounded-lg border border-zinc-200 hover:border-zinc-400 cursor-pointer whitespace-nowrap"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Reset Edits</span>
+                      <span>Reset</span>
                     </button>
                   )}
                 </div>
@@ -1700,13 +2721,13 @@ export function AiImageEditPage({
                   handleUploadFile(file);
                 }
               }}
-              className="min-h-[380px] bg-[#141416] rounded-xl flex items-center justify-center p-4 overflow-hidden"
+              className="min-h-[420px] max-h-[620px] bg-[#141416] rounded-xl flex items-center justify-center p-5 overflow-auto"
             >
               {processing ? (
                 <div className="text-center space-y-3 text-zinc-300">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-400" />
                   <p className="text-sm font-medium">
-                    Analyzing image & generating movable coloring object...
+                    Analyzing image &amp; generating movable coloring object...
                   </p>
                 </div>
               ) : !sourcePhoto || !baseStage ? (
@@ -1716,7 +2737,7 @@ export function AiImageEditPage({
                     Upload an Original Image
                   </p>
                   <p className="text-xs leading-relaxed">
-                    Drag and drop a photo here, click Upload Original Image, or pick one from the top strip. Add AI objects, B&amp;W cartoons, or coloring stickers and drag them anywhere.
+                    Drag and drop a photo here, click Upload Original Image, or pick one from the top strip. Add AI objects, B&amp;W cartoons, borders, or coloring stickers and drag them directly on stage.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     <button
@@ -1738,12 +2759,15 @@ export function AiImageEditPage({
               ) : (
                 <div
                   ref={stageRef}
-                  onClick={() => {
-                    setActiveLayerId(null);
-                    setActiveTextId(null);
-                  }}
-                  className="relative max-h-[480px] w-full max-w-[440px] mx-auto bg-white rounded shadow-xl overflow-hidden select-none touch-none"
+                  onPointerDown={handleStagePointerDown}
+                  onPointerMove={handleStagePointerMove}
+                  onPointerUp={finishStagePointer}
+                  onPointerCancel={finishStagePointer}
+                  className={`relative w-full mx-auto bg-white rounded shadow-xl overflow-hidden select-none touch-none shrink-0 ${
+                    canvasTool !== "select" && !showOriginalOnly ? "cursor-crosshair" : ""
+                  }`}
                   style={{
+                    maxWidth: `${Math.round(440 * canvasZoom)}px`,
                     aspectRatio: `${baseStage.width} / ${baseStage.height}`,
                   }}
                 >
@@ -1763,59 +2787,139 @@ export function AiImageEditPage({
                     }}
                   />
 
-                  {/* Center Snap Guide */}
-                  {!showOriginalOnly &&
-                    ((activeLayer && Math.abs(activeLayer.x - 50) < 0.5) ||
-                      (activeTextLayer && Math.abs(activeTextLayer.x - 50) < 0.5)) && (
-                      <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 w-px bg-blue-400/70 z-30" />
-                    )}
+                  {/* Pure B&W Page Border / Worksheet Overlay */}
+                  {!showOriginalOnly && activeBorderDataUrl && (
+                    <img
+                      src={activeBorderDataUrl}
+                      alt="Page border"
+                      draggable={false}
+                      className="absolute inset-0 w-full h-full object-fill pointer-events-none z-10"
+                    />
+                  )}
 
-                  {/* Interactive Object & Sticker Layers */}
+                  {/* Safe Printable Margin Guide */}
+                  {!showOriginalOnly && showMarginGrid && (
+                    <div className="pointer-events-none absolute inset-[6%] border border-dashed border-blue-500/70 z-30">
+                      <span className="absolute top-1 left-1.5 text-[9px] font-semibold text-blue-600 bg-white/85 px-1 rounded">
+                        Safe Print Margin
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Smart Alignment & Margin Snap Guides */}
+                  {!showOriginalOnly && (
+                    <>
+                      {(snapGuides.vCenter ||
+                        (activeLayer && Math.abs(activeLayer.x - 50) < 0.4) ||
+                        (activeTextLayer && Math.abs(activeTextLayer.x - 50) < 0.4)) && (
+                        <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 w-px bg-blue-500/80 z-30" />
+                      )}
+                      {snapGuides.hCenter && (
+                        <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-px bg-blue-500/80 z-30" />
+                      )}
+                      {snapGuides.leftMargin && (
+                        <div className="pointer-events-none absolute top-0 bottom-0 left-[8%] w-px bg-emerald-500/80 z-30" />
+                      )}
+                      {snapGuides.rightMargin && (
+                        <div className="pointer-events-none absolute top-0 bottom-0 left-[92%] w-px bg-emerald-500/80 z-30" />
+                      )}
+                      {snapGuides.topMargin && (
+                        <div className="pointer-events-none absolute left-0 right-0 top-[8%] h-px bg-emerald-500/80 z-30" />
+                      )}
+                      {snapGuides.bottomMargin && (
+                        <div className="pointer-events-none absolute left-0 right-0 top-[92%] h-px bg-emerald-500/80 z-30" />
+                      )}
+                    </>
+                  )}
+
+                  {/* Interactive Object & Sticker Layers (Drag, Resize, Rotate) */}
                   {!showOriginalOnly &&
-                    layers.map((layer) => {
-                      const isSelected = layer.id === activeLayerId;
-                      return (
-                        <div
-                          key={layer.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectObject(layer.id);
-                          }}
-                          style={{
-                            left: `${layer.x}%`,
-                            top: `${layer.y}%`,
-                            width: `${layer.widthPct * layer.scale}%`,
-                            aspectRatio: `${layer.aspectRatio}`,
-                            opacity: layer.opacity,
-                            transform: `translate(-50%, -50%) rotate(${layer.rotation}deg) scaleX(${
-                              layer.flipH ? -1 : 1
-                            })`,
-                          }}
-                          className={`absolute cursor-pointer transition-shadow z-10 ${
-                            isSelected
-                              ? "ring-2 ring-blue-600 ring-offset-2 rounded bg-blue-500/5"
-                              : "hover:ring-1 hover:ring-blue-400/70 rounded"
-                          }`}
-                        >
-                          <img
-                            src={layer.src}
-                            alt={layer.label}
-                            draggable={false}
-                            className="w-full h-full object-contain pointer-events-none"
+                    layers
+                      .filter((l) => !l.hidden)
+                      .map((layer) => {
+                        const isSelected = layer.id === activeLayerId;
+                        const canManipulate = isSelected && !layer.locked && canvasTool === "select";
+                        return (
+                          <div
+                            key={layer.id}
+                            onPointerDown={(e) => beginLayerDrag(e, layer)}
                             style={{
-                              filter:
-                                coloringEnabled && colorMode === "bw"
-                                  ? "grayscale(100%) contrast(150%)"
-                                  : coloringEnabled
-                                  ? "grayscale(100%)"
-                                  : undefined,
+                              left: `${layer.x}%`,
+                              top: `${layer.y}%`,
+                              width: `${layer.widthPct * layer.scale}%`,
+                              aspectRatio: `${layer.aspectRatio}`,
+                              opacity: layer.opacity,
+                              transform: `translate(-50%, -50%) rotate(${layer.rotation}deg) scaleX(${
+                                layer.flipH ? -1 : 1
+                              })`,
                             }}
-                          />
-                        </div>
-                      );
-                    })}
+                            className={`absolute transition-shadow z-10 ${
+                              canvasTool !== "select"
+                                ? "pointer-events-none"
+                                : layer.locked
+                                ? "cursor-not-allowed"
+                                : "cursor-grab active:cursor-grabbing"
+                            } ${
+                              isSelected
+                                ? layer.locked
+                                  ? "ring-2 ring-amber-500 ring-offset-1 rounded"
+                                  : "ring-2 ring-blue-600 ring-offset-2 rounded bg-blue-500/5"
+                                : "hover:ring-1 hover:ring-blue-400/70 rounded"
+                            }`}
+                          >
+                            <img
+                              src={layer.src}
+                              alt={layer.label}
+                              draggable={false}
+                              className="w-full h-full object-contain pointer-events-none"
+                              style={{
+                                filter:
+                                  coloringEnabled && colorMode === "bw"
+                                    ? "grayscale(100%) contrast(150%)"
+                                    : coloringEnabled
+                                    ? "grayscale(100%)"
+                                    : undefined,
+                              }}
+                            />
 
-                  {/* Interactive Text Layers */}
+                            {/* Locked Indicator */}
+                            {isSelected && layer.locked && (
+                              <span
+                                style={{
+                                  transform: layer.flipH ? "scaleX(-1)" : undefined,
+                                }}
+                                className="absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shadow"
+                              >
+                                <Lock className="w-3 h-3" />
+                              </span>
+                            )}
+
+                            {/* Direct Rotate & Resize Handles */}
+                            {canManipulate && (
+                              <>
+                                <button
+                                  type="button"
+                                  onPointerDown={(e) => beginLayerRotate(e, layer)}
+                                  title="Drag to rotate"
+                                  aria-label={`Rotate ${layer.label}`}
+                                  className="absolute -top-6 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white border-2 border-blue-600 text-blue-600 shadow flex items-center justify-center cursor-grab active:cursor-grabbing z-30"
+                                >
+                                  <RotateCw className="w-2.5 h-2.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onPointerDown={(e) => beginLayerResize(e, layer)}
+                                  title="Drag to resize"
+                                  aria-label={`Resize ${layer.label}`}
+                                  className="absolute -bottom-2.5 -right-2.5 w-5 h-5 rounded-full bg-blue-600 border-2 border-white shadow cursor-nwse-resize z-30"
+                                />
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                  {/* Interactive Text Layers (Drag to Move) */}
                   {!showOriginalOnly &&
                     textLayers.map((tl) => {
                       const isSelected = tl.id === activeTextId;
@@ -1825,18 +2929,19 @@ export function AiImageEditPage({
                       return (
                         <div
                           key={tl.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectText(tl.id);
-                          }}
+                          onPointerDown={(e) => beginTextDrag(e, tl)}
                           style={{
                             left: `${tl.x}%`,
                             top: `${tl.y}%`,
                             transform: `translate(-50%, -50%) rotate(${tl.rotation}deg)`,
                           }}
-                          className={`absolute cursor-pointer rounded z-20 max-w-[94%] ${
-                            hasBound ? "" : "px-1.5 py-0.5"
-                          } ${isSelected ? "ring-2 ring-blue-600 ring-offset-1" : "hover:ring-1 hover:ring-blue-400/70"}`}
+                          className={`absolute rounded z-20 max-w-[94%] ${
+                            canvasTool !== "select"
+                              ? "pointer-events-none"
+                              : "cursor-grab active:cursor-grabbing"
+                          } ${hasBound ? "" : "px-1.5 py-0.5"} ${
+                            isSelected ? "ring-2 ring-blue-600 ring-offset-1" : "hover:ring-1 hover:ring-blue-400/70"
+                          }`}
                         >
                           <div
                             className="relative"
@@ -1859,23 +2964,60 @@ export function AiImageEditPage({
                                 scale={baseScale}
                               />
                             )}
-                            <div className="relative z-10" style={getTextPreviewStyle(tl)}>
+                            <div className="relative z-10 pointer-events-none" style={getTextPreviewStyle(tl)}>
                               {renderTextPreviewContent(tl)}
                             </div>
                           </div>
                         </div>
                       );
                     })}
+
+                  {/* Freehand Ink Pen (#000000) & Whiteout (#FFFFFF) Live Stroke Overlay */}
+                  {!showOriginalOnly && (drawStrokes.length > 0 || activeDrawStroke) && (
+                    <svg
+                      viewBox="0 0 1000 1000"
+                      preserveAspectRatio="none"
+                      className="absolute inset-0 w-full h-full pointer-events-none z-25"
+                    >
+                      {[...drawStrokes, ...(activeDrawStroke ? [activeDrawStroke] : [])].map((st) => {
+                        const strokeColor = st.tool === "whiteout" ? "#FFFFFF" : "#000000";
+                        const strokePx = Math.max(1.5, st.width * baseScale);
+                        if (st.points.length === 1) {
+                          return (
+                            <circle
+                              key={st.id}
+                              cx={st.points[0].x}
+                              cy={st.points[0].y}
+                              r={Math.max(1.5, st.width * 0.5)}
+                              fill={strokeColor}
+                            />
+                          );
+                        }
+                        return (
+                          <path
+                            key={st.id}
+                            d={buildStrokePathD(st.points)}
+                            fill="none"
+                            stroke={strokeColor}
+                            strokeWidth={strokePx}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        );
+                      })}
+                    </svg>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Added Objects Layer Strip */}
+            {/* Added Objects Layer Strip (with Lock & Visibility Toggles) */}
             {layers.length > 0 && (
               <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-zinc-700">
-                    Added Objects & Stickers (Tap to Select & Move)
+                    Added Objects &amp; Stickers (Drag directly on stage · Arrow keys nudge)
                   </span>
                   <span className="text-zinc-500">
                     {activeLayer ? `Selected: ${activeLayer.label}` : "Tap an item on stage"}
@@ -1887,18 +3029,44 @@ export function AiImageEditPage({
                     return (
                       <div
                         key={l.id}
-                        className={`inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg border text-xs font-medium transition-colors ${
+                        className={`inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg border text-xs font-medium transition-colors ${
                           selected
                             ? "bg-zinc-950 text-white border-zinc-950"
                             : "bg-zinc-50 text-zinc-800 border-zinc-200 hover:border-zinc-400"
-                        }`}
+                        } ${l.hidden ? "opacity-55" : ""}`}
                       >
                         <button
                           type="button"
-                          onClick={() => setActiveLayerId(l.id)}
-                          className="cursor-pointer truncate max-w-[140px]"
+                          onClick={() => handleSelectObject(l.id)}
+                          className="cursor-pointer truncate max-w-[130px]"
                         >
                           {l.label}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleLayerVisibility(l.id)}
+                          title={l.hidden ? `Show ${l.label}` : `Hide ${l.label}`}
+                          aria-label={l.hidden ? `Show ${l.label}` : `Hide ${l.label}`}
+                          className={`p-0.5 rounded cursor-pointer ${
+                            selected ? "hover:bg-white/20 text-zinc-300" : "hover:bg-zinc-200 text-zinc-500"
+                          }`}
+                        >
+                          {l.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleLayerLock(l.id)}
+                          title={l.locked ? `Unlock ${l.label}` : `Lock ${l.label}`}
+                          aria-label={l.locked ? `Unlock ${l.label}` : `Lock ${l.label}`}
+                          className={`p-0.5 rounded cursor-pointer ${
+                            l.locked
+                              ? "text-amber-400 hover:bg-white/20"
+                              : selected
+                              ? "hover:bg-white/20 text-zinc-300"
+                              : "hover:bg-zinc-200 text-zinc-500"
+                          }`}
+                        >
+                          {l.locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                         </button>
                         <button
                           type="button"
@@ -1924,34 +3092,67 @@ export function AiImageEditPage({
                   <div className="flex items-center gap-2 text-xs font-semibold text-zinc-900">
                     <Move className="w-3.5 h-3.5 text-blue-600" />
                     <span>Manual Edit: {activeLayer.label}</span>
+                    {activeLayer.locked && (
+                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                        Locked
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => updateActiveLayer({ x: 18 })}
-                      className="px-2 py-1 text-[11px] font-medium bg-white border border-zinc-200 rounded hover:border-zinc-400 cursor-pointer"
+                      disabled={activeLayer.locked}
+                      onClick={() => updateActiveLayer({ x: 18 }, true)}
+                      className="px-2 py-1 text-[11px] font-medium bg-white border border-zinc-200 rounded hover:border-zinc-400 disabled:opacity-40 cursor-pointer"
                     >
                       Left
                     </button>
                     <button
                       type="button"
-                      onClick={() => updateActiveLayer({ x: 50 })}
-                      className="px-2 py-1 text-[11px] font-medium bg-white border border-zinc-200 rounded hover:border-zinc-400 cursor-pointer"
+                      disabled={activeLayer.locked}
+                      onClick={() => updateActiveLayer({ x: 50 }, true)}
+                      className="px-2 py-1 text-[11px] font-medium bg-white border border-zinc-200 rounded hover:border-zinc-400 disabled:opacity-40 cursor-pointer"
                     >
                       Center
                     </button>
                     <button
                       type="button"
-                      onClick={() => updateActiveLayer({ x: 82 })}
-                      className="px-2 py-1 text-[11px] font-medium bg-white border border-zinc-200 rounded hover:border-zinc-400 cursor-pointer"
+                      disabled={activeLayer.locked}
+                      onClick={() => updateActiveLayer({ x: 82 }, true)}
+                      className="px-2 py-1 text-[11px] font-medium bg-white border border-zinc-200 rounded hover:border-zinc-400 disabled:opacity-40 cursor-pointer"
                     >
                       Right
                     </button>
                     <button
                       type="button"
-                      onClick={() => updateActiveLayer({ flipH: !activeLayer.flipH })}
-                      title="Flip Horizontal"
+                      onClick={() => toggleLayerLock(activeLayer.id)}
+                      title={activeLayer.locked ? "Unlock Layer" : "Lock Layer"}
                       className={`p-1.5 rounded border cursor-pointer ${
+                        activeLayer.locked
+                          ? "bg-amber-500 text-white border-amber-500"
+                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                      }`}
+                    >
+                      {activeLayer.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleLayerVisibility(activeLayer.id)}
+                      title={activeLayer.hidden ? "Show Layer" : "Hide Layer"}
+                      className={`p-1.5 rounded border cursor-pointer ${
+                        activeLayer.hidden
+                          ? "bg-zinc-950 text-white border-zinc-950"
+                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                      }`}
+                    >
+                      {activeLayer.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={activeLayer.locked}
+                      onClick={() => updateActiveLayer({ flipH: !activeLayer.flipH }, true)}
+                      title="Flip Horizontal"
+                      className={`p-1.5 rounded border disabled:opacity-40 cursor-pointer ${
                         activeLayer.flipH
                           ? "bg-zinc-950 text-white border-zinc-950"
                           : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
@@ -1962,7 +3163,7 @@ export function AiImageEditPage({
                     <button
                       type="button"
                       onClick={handleDuplicateActiveLayer}
-                      title="Duplicate"
+                      title="Duplicate (Ctrl+D)"
                       className="p-1.5 rounded bg-white text-zinc-700 border border-zinc-200 hover:border-zinc-400 cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
@@ -1986,7 +3187,7 @@ export function AiImageEditPage({
                     <button
                       type="button"
                       onClick={() => handleDeleteLayer(activeLayer.id)}
-                      title="Delete Object"
+                      title="Delete Object (Del)"
                       className="p-1.5 rounded bg-white text-red-600 border border-zinc-200 hover:bg-red-50 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -2003,7 +3204,7 @@ export function AiImageEditPage({
                     max={96}
                     step={2}
                     unit="%"
-                    onChange={(val) => updateActiveLayer({ x: val })}
+                    onChange={(val) => !activeLayer.locked && updateActiveLayer({ x: val })}
                   />
                   <StepperControl
                     compact
@@ -2013,7 +3214,7 @@ export function AiImageEditPage({
                     max={96}
                     step={2}
                     unit="%"
-                    onChange={(val) => updateActiveLayer({ y: val })}
+                    onChange={(val) => !activeLayer.locked && updateActiveLayer({ y: val })}
                   />
                   <StepperControl
                     compact
@@ -2023,7 +3224,7 @@ export function AiImageEditPage({
                     max={250}
                     step={5}
                     unit="%"
-                    onChange={(val) => updateActiveLayer({ scale: val / 100 })}
+                    onChange={(val) => !activeLayer.locked && updateActiveLayer({ scale: val / 100 })}
                   />
                   <StepperControl
                     compact
@@ -2033,54 +3234,82 @@ export function AiImageEditPage({
                     max={180}
                     step={5}
                     unit="°"
-                    onChange={(val) => updateActiveLayer({ rotation: val })}
+                    onChange={(val) => !activeLayer.locked && updateActiveLayer({ rotation: val })}
                   />
                 </div>
               </div>
             )}
 
-            {/* Action Bar */}
+            {/* Action Bar (Export + Direct Cross-Page Handoffs) */}
             {sourcePhoto && baseStage && (
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-zinc-100">
-                <button
-                  type="button"
-                  disabled={exporting}
-                  onClick={handleBakeAndContinue}
-                  className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Bake & Continue Editing</span>
-                </button>
+              <div className="space-y-2.5 pt-3 border-t border-zinc-100">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    disabled={exporting}
+                    onClick={handleBakeAndContinue}
+                    className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Bake &amp; Continue Editing</span>
+                  </button>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={exporting}
-                    onClick={handleSaveToPhotoHall}
-                    className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-zinc-900 bg-white border border-zinc-300 hover:bg-zinc-50 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Save to Photo Hall</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={exporting}
-                    onClick={handleDownloadPdf}
-                    className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>{exporting ? "Exporting..." : "Download PDF"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={exporting}
-                    onClick={handleDownloadPng}
-                    className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-zinc-950 hover:bg-zinc-800 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download PNG</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={handleSaveToPhotoHall}
+                      className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-zinc-900 bg-white border border-zinc-300 hover:bg-zinc-50 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Save to Photo Hall</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={handleDownloadPdf}
+                      className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>{exporting ? "Exporting..." : "Download PDF"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={handleDownloadPng}
+                      className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-zinc-950 hover:bg-zinc-800 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download PNG</span>
+                    </button>
+                  </div>
                 </div>
+
+                {onSendToPage && (
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-zinc-100/80">
+                    <span className="text-[11px] text-zinc-500 mr-auto">
+                      Save &amp; continue workflow:
+                    </span>
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={() => handleSaveAndSend("book")}
+                      className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-800 bg-zinc-50 border border-zinc-200 hover:border-zinc-400 hover:bg-zinc-100 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Send to Book</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={() => handleSaveAndSend("design")}
+                      className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-800 bg-zinc-50 border border-zinc-200 hover:border-zinc-400 hover:bg-zinc-100 rounded-lg cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      <LayoutTemplate className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Send to Design</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
