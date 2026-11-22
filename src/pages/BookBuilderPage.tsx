@@ -33,8 +33,8 @@ interface BookBuilderPageProps {
   onBackHome: () => void;
 }
 
-const MIN_BOOK_PAGES = 20;
-const MAX_BOOK_PAGES = 35;
+const MIN_BOOK_PAGES = 8;
+const MAX_BOOK_PAGES = 48;
 
 const BATCH_THEMES = [
   { title: "Botanical Lotus Mandala", prompt: "Intricate botanical lotus mandala coloring page" },
@@ -135,7 +135,7 @@ export function BookBuilderPage({
     });
   };
 
-  const handleSelectUpTo35 = () => {
+  const handleSelectUpToMax = () => {
     setErrorMsg(null);
     setSelectedIds(visiblePool.slice(0, MAX_BOOK_PAGES).map((p) => p.id));
   };
@@ -310,10 +310,10 @@ export function BookBuilderPage({
             <span>Back to Main Grid</span>
           </button>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950">
-            02. Coloring Book Builder (20–35 Pages)
+            02. Coloring Book Builder (8–48 Pages)
           </h1>
           <p className="text-sm text-zinc-600">
-            Create လုပ်ထားသော ပုံ ၂၀ မှ ၃၅ ပုံအထိ စိတ်ကြိုက်ရွေးချယ်ပြီး Original Resolution အပြည့်အဝဖြင့် PDF သို့မဟုတ် ZIP ထုတ်ယူပါ။
+            Create လုပ်ထားသော ပုံ ၈ ပုံမှ ၄၈ ပုံအထိ စိတ်ကြိုက်ရွေးချယ်ပြီး Original Resolution အပြည့်အဝဖြင့် PDF သို့မဟုတ် ZIP ထုတ်ယူပါ။
           </p>
         </div>
 
@@ -386,7 +386,7 @@ export function BookBuilderPage({
 
               <button
                 type="button"
-                onClick={handleSelectUpTo35}
+                onClick={handleSelectUpToMax}
                 className="min-h-[34px] px-2.5 py-1 text-xs font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg cursor-pointer whitespace-nowrap"
               >
                 Select All
@@ -418,7 +418,7 @@ export function BookBuilderPage({
                   ? "Ready for Full-Resolution Export"
                   : neededCount > 0
                   ? `Select ${neededCount} more page${neededCount === 1 ? "" : "s"}`
-                  : "Maximum 35 pages exceeded"}
+                  : `Maximum ${MAX_BOOK_PAGES} pages exceeded`}
               </span>
             </div>
 
@@ -436,7 +436,7 @@ export function BookBuilderPage({
             {neededCount > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span className="text-xs text-zinc-600">
-                  Need more 300 DPI coloring pages to reach 20?
+                  Need more 300 DPI coloring pages to reach {MIN_BOOK_PAGES}?
                 </span>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -452,7 +452,7 @@ export function BookBuilderPage({
                     )}
                     <span>{batchStatus || "Generate +5 Coloring Pages"}</span>
                   </button>
-                  {neededCount <= 20 && (
+                  {neededCount <= MIN_BOOK_PAGES && (
                     <button
                       type="button"
                       disabled={batchGenerating}
@@ -807,7 +807,7 @@ export function BookBuilderPage({
               <h3 className="text-sm font-semibold text-zinc-950">
                 3. Page Order ({selectedPhotos.length})
               </h3>
-              <span className="text-xs text-zinc-500 tabular-nums">20–35 Pages</span>
+              <span className="text-xs text-zinc-500 tabular-nums">8–48 Pages</span>
             </div>
 
             {selectedPhotos.length === 0 ? (

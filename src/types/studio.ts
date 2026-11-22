@@ -261,7 +261,8 @@ export type ShowcaseLayoutId =
   | "hero-plus-4"
   | "clean-grid-4"
   | "diagonal-cascade-5"
-  | "spotlight-trio-3";
+  | "spotlight-trio-3"
+  | "flat-lay-book";
 
 export type ShowcaseBackdropId =
   | "festive-pine-desk"
@@ -275,6 +276,11 @@ export type ShowcaseBackdropId =
   | "ocean-mint-atelier"
   | "editorial-sage-marble"
   | "candy-pastel-confetti"
+  | "flatlay-oak-latte"
+  | "flatlay-picnic-grass"
+  | "flatlay-linen-blinds"
+  | "flatlay-walnut-botanical"
+  | "flatlay-pastel-markers"
   | "custom";
 
 export type ShowcasePlaqueStyle =
@@ -282,7 +288,19 @@ export type ShowcasePlaqueStyle =
   | "cloud-sticker"
   | "ribbon-badge"
   | "scallop-frame"
-  | "polaroid-strip";
+  | "polaroid-strip"
+  | "neo-brutal"
+  | "glass-frost"
+  | "y2k-spark"
+  | "luxe-deco"
+  | "postage-stamp"
+  | "retro-ticket"
+  | "royal-crown"
+  | "comic-burst"
+  | "floral-arch"
+  | "neon-cyber";
+
+export type ShowcaseBannerBoundDash = "solid" | "dashed" | "dotted" | "double";
 
 export type ShowcaseAspectId = "9:16" | "2:3" | "4:5" | "1:1";
 
@@ -324,8 +342,18 @@ export interface ShowcaseDesignConfig {
   layout: ShowcaseLayoutId;
   backdrop: ShowcaseBackdropId;
   customBackdropSrc?: string;
+  hideHeroBanner?: boolean;
+  overlayFlatLayPages?: boolean;
   plaqueStyle: ShowcasePlaqueStyle;
   plaqueBgColor?: string;
+  bannerBoundColor?: string;
+  bannerBoundWidth?: number; // 0..14 border stroke width
+  bannerBoundDash?: ShowcaseBannerBoundDash;
+  bannerBoundRadius?: number; // 0..48 corner roundness
+  bannerBoundBgOpacity?: number; // 0..100 fill opacity
+  bannerBoundShadow?: boolean; // drop shadow toggle (default true)
+  bannerBoundScaleX?: number; // 70..100 width %
+  bannerBoundScaleY?: number; // 75..125 height %
   accentBadge: string; // e.g., "25" or ""
   titleLine1: string; // e.g., "Cutest" or "Christmas"
   titleLine2Ribbon: string; // e.g., "Christmas Handprint" or "Coloring Pages"

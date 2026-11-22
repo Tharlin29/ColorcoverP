@@ -6,6 +6,11 @@ import {
   ShowcaseDesignConfig,
   ShowcaseHeroTextStyle,
 } from "../types/studio";
+import {
+  FLAT_LAY_BOOK_SPREAD_GEOMETRY,
+  FLAT_LAY_PHOTO_URLS,
+  isFlatLayBackdrop,
+} from "./flatLayAssets";
 import { drawTextLayerOnCanvas } from "./imageEditor";
 
 export function getShowcaseCanvasSize(aspect: ShowcaseAspectId): {
@@ -400,6 +405,20 @@ async function drawSceneBackdrop(
       return;
     } catch {
       // Fallback to wood desk
+    }
+  }
+
+  if (isFlatLayBackdrop(backdrop)) {
+    const photoSrc = FLAT_LAY_PHOTO_URLS[backdrop];
+    try {
+      const img = await loadImageCached(photoSrc);
+      const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      return;
+    } catch {
+      // Fallback to warm wooden tabletop if image fails to load
     }
   }
 
@@ -1160,64 +1179,168 @@ function drawHeroBanner(
   const bannerYOff = ((config.bannerOffsetY ?? 0) / 100) * h;
   const bannerCX = w / 2 + bannerXOff;
   const bannerY = (isCenter ? h * 0.495 : h * (isCompact ? 0.175 : 0.165)) + bannerYOff;
-  const bannerW = w * (isCenter ? 0.88 : 0.9);
-  const bannerH = isCenter ? h * (isCompact ? 0.34 : 0.31) : h * (isCompact ? 0.28 : 0.255);
+  const scaleXRatio = Math.max(0.7, Math.min(1.0, (config.bannerBoundScaleX ?? (isCenter ? 88 : 90)) / 100));
+  const scaleYRatio = Math.max(0.75, Math.min(1.25, (config.bannerBoundScaleY ?? 100) / 100));
+  const bannerW = w * scaleXRatio;
+  const bannerH = (isCenter ? h * (isCompact ? 0.34 : 0.31) : h * (isCompact ? 0.28 : 0.255)) * scaleYRatio;
 
   const left = bannerCX - bannerW / 2;
   const top = bannerY - bannerH / 2;
   const customPlaqueBg =
     config.plaqueBgColor && config.plaqueBgColor !== "transparent" ? config.plaqueBgColor : null;
   const transparentPlaque = config.plaqueBgColor === "transparent";
+  const bgOpacity = transparentPlaque
+    ? 0
+    : Math.max(0, Math.min(1, (config.bannerBoundBgOpacity ?? 100) / 100));
+  const hasExplicitBound =
+    config.bannerBoundColor !== undefined ||
+    config.bannerBoundWidth !== undefined ||
+    config.bannerBoundDash !== undefined ||
+    config.bannerBoundBgOpacity !== undefined;
+  const strokeCol = config.bannerBoundColor || config.primaryColor || "#18181B";
+  const strokePx =
+    config.bannerBoundWidth !== undefined
+      ? config.bannerBoundWidth * (w / 1000)
+      : Math.max(3.8, w * 0.0045);
+  const boundDash = config.bannerBoundDash || "solid";
+  const customRad =
+    config.bannerBoundRadius !== undefined
+      ? Math.min(bannerH * 0.48, config.bannerBoundRadius * (w / 620))
+      : null;
+  const useShadow = config.bannerBoundShadow !== false;
 
-  ctx.save();
-  // Plaque / Sticker Backing
-  if (!transparentPlaque) {
-    ctx.shadowColor = "rgba(0,0,0,0.45)";
-    ctx.shadowBlur = w * 0.035;
-    ctx.shadowOffsetY = h * 0.01;
+  const applyDash = (lw: number) => {
+    if (boundDash === "dashed") {
+      ctx.setLineDash([Math.max(8, lw * 2.8), Math.max(6, lw * 1.9)]);
+    } else if (boundDash === "dotted") {
+      ctx.lineCap = "round";
+      ctx.setLineDash([1, Math.max(6, lw * 2.1)]);
+    } else {
+      ctx.setLineDash([]);
+    }
+  };
 
-    if (config.plaqueStyle === "cloud-sticker") {
-      ctx.fillStyle = customPlaqueBg || "#FFFFFF";
-      const lobes = 12;
-      ctx.beginPath();
-      for (let i = 0; i < lobes; i++) {
-        const t = (i / lobes) * Math.PI * 2;
-        const lx = bannerCX + Math.cos(t) * (bannerW * 0.43);
-        const ly = bannerY + Math.sin(t) * (bannerH * 0.38);
-        ctx.moveTo(lx + bannerW * 0.14, ly);
-        ctx.arc(lx, ly, bannerW * 0.135, 0, Math.PI * 2);
-      }
-      drawRoundedRectPath(ctx, left + bannerW * 0.04, top + bannerH * 0.05, bannerW * 0.92, bannerH * 0.88, bannerH * 0.25);
-      ctx.fill();
-    } else if (config.plaqueStyle === "wood-plaque") {
-      ctx.fillStyle = customPlaqueBg || "#FAF5EB";
-      drawRoundedRectPath(ctx, left, top, bannerW, bannerH, bannerH * 0.18);
-      ctx.fill();
+  const applySoftShadow = () => {
+    if (useShadow) {
+      ctx.shadowColor = "rgba(0,0,0,0.42)";
+      ctx.shadowBlur = w * 0.032;
+      ctx.shadowOffsetY = h * 0.01;
+    } else {
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
-      ctx.save();
-      drawRoundedRectPath(ctx, left + 10, top + 10, bannerW - 20, bannerH - 20, bannerH * 0.16);
-      ctx.clip();
-      ctx.fillStyle = customPlaqueBg || "#F5ECDC";
-      ctx.fillRect(left, top, bannerW, bannerH);
-      ctx.strokeStyle = "rgba(146, 107, 68, 0.14)";
-      ctx.lineWidth = 2.5;
-      for (let i = 1; i <= 5; i++) {
-        const ly = top + (i / 6) * bannerH;
+    }
+  };
+
+  const clearShadow = () => {
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  };
+
+  const fillCurrentPath = (colorHex: string, overrideAlpha?: number) => {
+    const a = overrideAlpha !== undefined ? overrideAlpha : bgOpacity;
+    if (a <= 0.005) return;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = colorHex;
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const strokeCurrentPath = (colorHex: string, lw: number) => {
+    if (lw <= 0.2) return;
+    ctx.save();
+    clearShadow();
+    ctx.strokeStyle = colorHex;
+    ctx.lineWidth = lw;
+    ctx.lineJoin = "round";
+    applyDash(lw);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  };
+
+  ctx.save();
+  // Plaque / Banner Bound Backing & Frame
+  if (!transparentPlaque || hasExplicitBound) {
+    applySoftShadow();
+
+    if (config.plaqueStyle === "cloud-sticker") {
+      const lobes = 12;
+      const traceCloud = () => {
         ctx.beginPath();
-        ctx.moveTo(left, ly);
-        ctx.lineTo(left + bannerW, ly);
-        ctx.stroke();
+        for (let i = 0; i < lobes; i++) {
+          const t = (i / lobes) * Math.PI * 2;
+          const lx = bannerCX + Math.cos(t) * (bannerW * 0.43);
+          const ly = bannerY + Math.sin(t) * (bannerH * 0.38);
+          ctx.moveTo(lx + bannerW * 0.14, ly);
+          ctx.arc(lx, ly, bannerW * 0.135, 0, Math.PI * 2);
+        }
+        drawRoundedRectPath(
+          ctx,
+          left + bannerW * 0.04,
+          top + bannerH * 0.05,
+          bannerW * 0.92,
+          bannerH * 0.88,
+          bannerH * 0.25
+        );
+      };
+      traceCloud();
+      fillCurrentPath(customPlaqueBg || "#FFFFFF");
+      if (config.bannerBoundWidth !== undefined || config.bannerBoundColor || config.bannerBoundDash) {
+        clearShadow();
+        const pLeft = left + bannerW * 0.06;
+        const pTop = top + bannerH * 0.08;
+        const pW = bannerW * 0.88;
+        const pH = bannerH * 0.84;
+        drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, customRad ?? bannerH * 0.22);
+        strokeCurrentPath(strokeCol, strokePx);
+        if (boundDash === "double" && strokePx > 0.2) {
+          const ins = Math.max(8, strokePx * 2.1);
+          drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(4, (customRad ?? bannerH * 0.22) - ins));
+          strokeCurrentPath(strokeCol, Math.max(1.5, strokePx * 0.55));
+        }
       }
-      ctx.restore();
+    } else if (config.plaqueStyle === "wood-plaque") {
+      const r = customRad ?? bannerH * 0.18;
+      drawRoundedRectPath(ctx, left, top, bannerW, bannerH, r);
+      fillCurrentPath(customPlaqueBg || "#FAF5EB");
+      clearShadow();
+      if (bgOpacity > 0.05) {
+        ctx.save();
+        ctx.globalAlpha = bgOpacity;
+        drawRoundedRectPath(ctx, left + 10, top + 10, bannerW - 20, bannerH - 20, Math.max(4, r - 4));
+        ctx.clip();
+        ctx.fillStyle = customPlaqueBg || "#F5ECDC";
+        ctx.fillRect(left, top, bannerW, bannerH);
+        ctx.strokeStyle = "rgba(146, 107, 68, 0.14)";
+        ctx.lineWidth = 2.5;
+        for (let i = 1; i <= 5; i++) {
+          const ly = top + (i / 6) * bannerH;
+          ctx.beginPath();
+          ctx.moveTo(left, ly);
+          ctx.lineTo(left + bannerW, ly);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      if (config.bannerBoundWidth !== undefined || config.bannerBoundColor || config.bannerBoundDash) {
+        drawRoundedRectPath(ctx, left, top, bannerW, bannerH, r);
+        strokeCurrentPath(strokeCol, strokePx);
+        if (boundDash === "double" && strokePx > 0.2) {
+          const ins = Math.max(9, strokePx * 2.2);
+          drawRoundedRectPath(ctx, left + ins, top + ins, bannerW - ins * 2, bannerH - ins * 2, Math.max(2, r - ins));
+          strokeCurrentPath(strokeCol, Math.max(1.5, strokePx * 0.55));
+        }
+      }
     } else if (config.plaqueStyle === "scallop-frame") {
       const pLeft = left + bannerW * 0.025;
       const pTop = top + bannerH * 0.04;
       const pW = bannerW * 0.95;
       const pH = bannerH * 0.92;
-      ctx.fillStyle = customPlaqueBg || "#FFFDF8";
-      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, bannerH * 0.16);
-      ctx.fill();
+      const r = customRad ?? bannerH * 0.16;
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFDF8");
       // Scalloped perimeter beads
       const beadR = Math.max(10, w * 0.017);
       const cols = Math.max(8, Math.round(pW / (beadR * 1.85)));
@@ -1237,35 +1360,37 @@ function drawHeroBanner(
         ctx.moveTo(pLeft + pW + beadR, by);
         ctx.arc(pLeft + pW, by, beadR, 0, Math.PI * 2);
       }
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
+      fillCurrentPath(customPlaqueBg || "#FFFDF8");
+      clearShadow();
       ctx.save();
-      ctx.setLineDash([8, 6]);
-      ctx.strokeStyle = config.secondaryColor || config.primaryColor;
-      ctx.lineWidth = Math.max(2.5, w * 0.003);
-      drawRoundedRectPath(ctx, pLeft + 14, pTop + 14, pW - 28, pH - 28, bannerH * 0.12);
-      ctx.stroke();
+      if (config.bannerBoundDash) {
+        applyDash(strokePx);
+      } else {
+        ctx.setLineDash([8, 6]);
+      }
+      ctx.strokeStyle = config.bannerBoundColor || config.secondaryColor || config.primaryColor;
+      ctx.lineWidth = config.bannerBoundWidth !== undefined ? strokePx : Math.max(2.5, w * 0.003);
+      if (ctx.lineWidth > 0.2) {
+        drawRoundedRectPath(ctx, pLeft + 14, pTop + 14, pW - 28, pH - 28, Math.max(4, r - 8));
+        ctx.stroke();
+      }
       ctx.restore();
     } else if (config.plaqueStyle === "polaroid-strip") {
       const pLeft = left + bannerW * 0.02;
       const pTop = top + bannerH * 0.03;
       const pW = bannerW * 0.96;
       const pH = bannerH * 0.94;
-      // Offset graphic solid block shadow
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.fillStyle = config.secondaryColor || "#18181B";
-      drawRoundedRectPath(ctx, pLeft + w * 0.012, pTop + w * 0.012, pW, pH, bannerH * 0.08);
-      ctx.fill();
-      // Main sharp card
-      ctx.fillStyle = customPlaqueBg || "#FFFFFF";
-      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, bannerH * 0.08);
-      ctx.fill();
-      ctx.strokeStyle = config.primaryColor;
-      ctx.lineWidth = Math.max(3.5, w * 0.0045);
-      ctx.stroke();
-      // Washi tape accents on top-left & top-right corners
+      const r = customRad ?? bannerH * 0.08;
+      clearShadow();
+      if (useShadow) {
+        ctx.fillStyle = config.bannerBoundColor || config.secondaryColor || "#18181B";
+        drawRoundedRectPath(ctx, pLeft + w * 0.012, pTop + w * 0.012, pW, pH, r);
+        ctx.fill();
+      }
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFFFF");
+      strokeCurrentPath(strokeCol, strokePx);
+      // Diagonal striped Washi tape accents
       for (const [tx, rot] of [
         [pLeft + pW * 0.06, -0.45],
         [pLeft + pW * 0.94, 0.45],
@@ -1273,19 +1398,395 @@ function drawHeroBanner(
         ctx.save();
         ctx.translate(tx, pTop + bannerH * 0.02);
         ctx.rotate(rot);
-        ctx.fillStyle = config.ribbonColor || config.primaryColor;
-        ctx.globalAlpha = 0.72;
-        ctx.fillRect(-w * 0.048, -w * 0.014, w * 0.096, w * 0.028);
+        ctx.fillStyle = config.ribbonColor || strokeCol;
+        ctx.globalAlpha = 0.78;
+        const tw = w * 0.096;
+        const th = w * 0.028;
+        ctx.fillRect(-tw / 2, -th / 2, tw, th);
+        ctx.strokeStyle = "rgba(255,255,255,0.45)";
+        ctx.lineWidth = Math.max(1.5, w * 0.002);
+        for (let s = -2; s <= 2; s++) {
+          ctx.beginPath();
+          ctx.moveTo(s * (tw * 0.18) - 4, th / 2);
+          ctx.lineTo(s * (tw * 0.18) + 4, -th / 2);
+          ctx.stroke();
+        }
         ctx.restore();
       }
-    } else {
-      ctx.fillStyle = customPlaqueBg || "#FFFFFF";
-      drawRoundedRectPath(ctx, left + bannerW * 0.03, top + bannerH * 0.04, bannerW * 0.94, bannerH * 0.92, bannerH * 0.14);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = config.primaryColor;
-      ctx.lineWidth = Math.max(4, w * 0.005);
+    } else if (config.plaqueStyle === "neo-brutal") {
+      // Trending Neo-Brutalist Pop Banner: bold solid hard offset + thick crisp ink border + top color bar
+      const pLeft = left + bannerW * 0.02;
+      const pTop = top + bannerH * 0.03;
+      const pW = bannerW * 0.96;
+      const pH = bannerH * 0.94;
+      const r = customRad ?? Math.min(18, bannerH * 0.08);
+      const hardOff = Math.max(8, w * 0.014);
+      const borderCol = config.bannerBoundColor || "#111113";
+      const lw = Math.max(strokePx, w * 0.0055);
+      clearShadow();
+      if (useShadow) {
+        ctx.fillStyle = borderCol;
+        drawRoundedRectPath(ctx, pLeft + hardOff, pTop + hardOff, pW, pH, r);
+        ctx.fill();
+      }
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFBEB");
+      strokeCurrentPath(borderCol, lw);
+      if (boundDash === "double" && lw > 0.2) {
+        const ins = Math.max(10, lw * 2.1);
+        drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(2, r - ins));
+        strokeCurrentPath(config.primaryColor || borderCol, Math.max(2, lw * 0.5));
+      }
+      // Corner window dots (Neo-Brutal UI motif)
+      const dotR = Math.max(4, w * 0.006);
+      for (let d = 0; d < 3; d++) {
+        ctx.beginPath();
+        ctx.arc(pLeft + w * 0.026 + d * dotR * 2.7, pTop + w * 0.022, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = d === 0 ? config.primaryColor : d === 1 ? config.secondaryColor : config.ribbonColor;
+        ctx.fill();
+        ctx.strokeStyle = borderCol;
+        ctx.lineWidth = Math.max(1.5, lw * 0.35);
+        ctx.stroke();
+      }
+    } else if (config.plaqueStyle === "glass-frost") {
+      // Trending Frosted Glassmorphism Card: translucent luminous veil + crisp glass rim + specular sheen
+      const pLeft = left + bannerW * 0.02;
+      const pTop = top + bannerH * 0.03;
+      const pW = bannerW * 0.96;
+      const pH = bannerH * 0.94;
+      const r = customRad ?? bannerH * 0.16;
+      const glassAlpha = config.bannerBoundBgOpacity !== undefined ? bgOpacity : 0.72;
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFFFF", glassAlpha);
+      clearShadow();
+      // Subtle diagonal glass highlight sheen
+      if (glassAlpha > 0.05) {
+        ctx.save();
+        drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+        ctx.clip();
+        const sheen = ctx.createLinearGradient(pLeft, pTop, pLeft + pW, pTop + pH);
+        sheen.addColorStop(0, "rgba(255,255,255,0.48)");
+        sheen.addColorStop(0.45, "rgba(255,255,255,0.06)");
+        sheen.addColorStop(1, "rgba(255,255,255,0.22)");
+        ctx.fillStyle = sheen;
+        ctx.fillRect(pLeft, pTop, pW, pH);
+        ctx.restore();
+      }
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      strokeCurrentPath(config.bannerBoundColor || "#FFFFFF", Math.max(strokePx, 2.5));
+      if (boundDash === "double") {
+        const ins = Math.max(8, strokePx * 2);
+        drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(4, r - ins));
+        strokeCurrentPath(config.bannerBoundColor || "#FFFFFF", Math.max(1.4, strokePx * 0.45));
+      }
+    } else if (config.plaqueStyle === "y2k-spark") {
+      // Trending Y2K Chrome / Sparkle Pill Frame
+      const pLeft = left + bannerW * 0.025;
+      const pTop = top + bannerH * 0.04;
+      const pW = bannerW * 0.95;
+      const pH = bannerH * 0.92;
+      const r = customRad ?? bannerH * 0.34;
+      const rimCol = config.bannerBoundColor || config.primaryColor || "#7C3AED";
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFFFF");
+      strokeCurrentPath(rimCol, strokePx);
+      // Inner secondary neon/chrome hairline
+      const ins = Math.max(9, strokePx * 2.1);
+      drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(4, r - ins));
+      strokeCurrentPath(config.secondaryColor || rimCol, Math.max(1.8, strokePx * 0.5));
+      // Bold Y2K 4-point sparkles at opposite corners
+      drawFourPointStar(ctx, pLeft + r * 0.25, pTop + r * 0.2, Math.max(18, w * 0.032), rimCol);
+      drawFourPointStar(ctx, pLeft + pW - r * 0.25, pTop + pH - r * 0.2, Math.max(18, w * 0.032), rimCol);
+      drawFourPointStar(ctx, pLeft + pW - r * 0.22, pTop + r * 0.22, Math.max(11, w * 0.019), config.secondaryColor || rimCol);
+      drawFourPointStar(ctx, pLeft + r * 0.22, pTop + pH - r * 0.22, Math.max(11, w * 0.019), config.secondaryColor || rimCol);
+    } else if (config.plaqueStyle === "luxe-deco") {
+      // Trending Editorial Art Deco Gold Luxury Plaque
+      const pLeft = left + bannerW * 0.025;
+      const pTop = top + bannerH * 0.04;
+      const pW = bannerW * 0.95;
+      const pH = bannerH * 0.92;
+      const cut = Math.min(28, bannerH * 0.14);
+      const decoCol = config.bannerBoundColor || "#D97706";
+      const traceStepped = (x: number, y: number, bw: number, bh: number, c: number) => {
+        ctx.beginPath();
+        ctx.moveTo(x + c, y);
+        ctx.lineTo(x + bw - c, y);
+        ctx.lineTo(x + bw - c, y + c);
+        ctx.lineTo(x + bw, y + c);
+        ctx.lineTo(x + bw, y + bh - c);
+        ctx.lineTo(x + bw - c, y + bh - c);
+        ctx.lineTo(x + bw - c, y + bh);
+        ctx.lineTo(x + c, y + bh);
+        ctx.lineTo(x + c, y + bh - c);
+        ctx.lineTo(x, y + bh - c);
+        ctx.lineTo(x, y + c);
+        ctx.lineTo(x + c, y + c);
+        ctx.closePath();
+      };
+      traceStepped(pLeft, pTop, pW, pH, cut);
+      fillCurrentPath(customPlaqueBg || "#FFFDF7");
+      strokeCurrentPath(decoCol, strokePx);
+      const ins = Math.max(10, strokePx * 2.2);
+      traceStepped(pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(8, cut * 0.72));
+      strokeCurrentPath(decoCol, Math.max(1.8, strokePx * 0.5));
+      // Diamond finials on left & right midpoints
+      clearShadow();
+      const dm = Math.max(7, w * 0.01);
+      ctx.fillStyle = decoCol;
+      for (const sx of [pLeft, pLeft + pW]) {
+        const sy = pTop + pH / 2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - dm);
+        ctx.lineTo(sx + dm, sy);
+        ctx.lineTo(sx, sy + dm);
+        ctx.lineTo(sx - dm, sy);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else if (config.plaqueStyle === "postage-stamp") {
+      // Trending Craft Postage Stamp Frame
+      const pad = Math.max(12, w * 0.016);
+      const ox = left + bannerW * 0.015;
+      const oy = top + bannerH * 0.025;
+      const ow = bannerW * 0.97;
+      const oh = bannerH * 0.95;
+      const step = Math.max(26, w * 0.034);
+      const nx = Math.max(8, Math.round(ow / step));
+      const ny = Math.max(4, Math.round(oh / step));
+      const sx = ow / nx;
+      const sy = oh / ny;
+      const notch = Math.min(sx, sy) * 0.3;
+
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      for (let i = 0; i < nx; i++) {
+        const x0 = ox + i * sx;
+        ctx.lineTo(x0 + sx * 0.24, oy);
+        ctx.quadraticCurveTo(x0 + sx * 0.5, oy + notch * 1.15, x0 + sx * 0.76, oy);
+        ctx.lineTo(x0 + sx, oy);
+      }
+      for (let i = 0; i < ny; i++) {
+        const y0 = oy + i * sy;
+        ctx.lineTo(ox + ow, y0 + sy * 0.24);
+        ctx.quadraticCurveTo(ox + ow - notch * 1.15, y0 + sy * 0.5, ox + ow, y0 + sy * 0.76);
+        ctx.lineTo(ox + ow, y0 + sy);
+      }
+      for (let i = nx; i > 0; i--) {
+        const x0 = ox + i * sx;
+        ctx.lineTo(x0 - sx * 0.24, oy + oh);
+        ctx.quadraticCurveTo(x0 - sx * 0.5, oy + oh - notch * 1.15, x0 - sx * 0.76, oy + oh);
+        ctx.lineTo(x0 - sx, oy + oh);
+      }
+      for (let i = ny; i > 0; i--) {
+        const y0 = oy + i * sy;
+        ctx.lineTo(ox, y0 - sy * 0.24);
+        ctx.quadraticCurveTo(ox + notch * 1.15, y0 - sy * 0.5, ox, y0 - sy * 0.76);
+        ctx.lineTo(ox, y0 - sy);
+      }
+      ctx.closePath();
+      fillCurrentPath(customPlaqueBg || "#FFFDF8");
+      strokeCurrentPath(strokeCol, strokePx);
+      // Inner stamp window rule
+      ctx.beginPath();
+      ctx.rect(ox + pad, oy + pad, ow - pad * 2, oh - pad * 2);
+      strokeCurrentPath(strokeCol, Math.max(1.8, strokePx * 0.55));
+    } else if (config.plaqueStyle === "retro-ticket") {
+      // Trending Retro Cinema / Event Ticket Stub
+      const pLeft = left + bannerW * 0.02;
+      const pTop = top + bannerH * 0.03;
+      const pW = bannerW * 0.96;
+      const pH = bannerH * 0.94;
+      const c = Math.min(28, bannerH * 0.14);
+      const traceTicket = (x: number, y: number, bw: number, bh: number, cr: number) => {
+        ctx.beginPath();
+        ctx.moveTo(x + cr, y);
+        ctx.lineTo(x + bw - cr, y);
+        ctx.quadraticCurveTo(x + bw - cr, y + cr, x + bw, y + cr);
+        ctx.lineTo(x + bw, y + bh * 0.42);
+        ctx.arc(x + bw, y + bh * 0.5, bh * 0.08, -Math.PI / 2, Math.PI / 2, true);
+        ctx.lineTo(x + bw, y + bh - cr);
+        ctx.quadraticCurveTo(x + bw - cr, y + bh - cr, x + bw - cr, y + bh);
+        ctx.lineTo(x + cr, y + bh);
+        ctx.quadraticCurveTo(x + cr, y + bh - cr, x, y + bh - cr);
+        ctx.lineTo(x, y + bh * 0.58);
+        ctx.arc(x, y + bh * 0.5, bh * 0.08, Math.PI / 2, -Math.PI / 2, true);
+        ctx.lineTo(x, y + cr);
+        ctx.quadraticCurveTo(x + cr, y + cr, x + cr, y);
+        ctx.closePath();
+      };
+      traceTicket(pLeft, pTop, pW, pH, c);
+      fillCurrentPath(customPlaqueBg || "#FEF9C3");
+      strokeCurrentPath(strokeCol, strokePx);
+      // Inner dashed ticket stub rule
+      ctx.save();
+      clearShadow();
+      ctx.strokeStyle = strokeCol;
+      ctx.lineWidth = Math.max(1.8, strokePx * 0.5);
+      ctx.setLineDash([8, 6]);
+      const ins = Math.max(14, w * 0.018);
+      drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, 8);
       ctx.stroke();
+      ctx.restore();
+    } else if (config.plaqueStyle === "royal-crown") {
+      // Trending Storybook Royal Crown Crest
+      const pLeft = left + bannerW * 0.03;
+      const pTop = top + bannerH * 0.05;
+      const pW = bannerW * 0.94;
+      const pH = bannerH * 0.91;
+      const r = customRad ?? bannerH * 0.16;
+      const crownCol = config.bannerBoundColor || "#D97706";
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFDF8");
+      strokeCurrentPath(crownCol, strokePx);
+      const ins = Math.max(10, strokePx * 2.2);
+      drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(4, r - ins));
+      strokeCurrentPath(crownCol, Math.max(1.6, strokePx * 0.5));
+      // Crown emblem perched atop center top edge
+      clearShadow();
+      const cw = Math.max(64, w * 0.095);
+      const ch = cw * 0.52;
+      const cy = pTop + strokePx * 0.5;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(bannerCX - cw * 0.42, cy);
+      ctx.lineTo(bannerCX - cw * 0.5, cy - ch * 0.78);
+      ctx.lineTo(bannerCX - cw * 0.2, cy - ch * 0.4);
+      ctx.lineTo(bannerCX, cy - ch);
+      ctx.lineTo(bannerCX + cw * 0.2, cy - ch * 0.4);
+      ctx.lineTo(bannerCX + cw * 0.5, cy - ch * 0.78);
+      ctx.lineTo(bannerCX + cw * 0.42, cy);
+      ctx.closePath();
+      ctx.fillStyle = customPlaqueBg || "#FFFDF8";
+      ctx.fill();
+      ctx.strokeStyle = crownCol;
+      ctx.lineWidth = Math.max(3, strokePx);
+      ctx.lineJoin = "round";
+      ctx.stroke();
+      const jR = Math.max(3.5, strokePx * 0.9);
+      ctx.fillStyle = crownCol;
+      for (const [jx, jy] of [
+        [bannerCX - cw * 0.5, cy - ch * 0.86],
+        [bannerCX, cy - ch * 1.08],
+        [bannerCX + cw * 0.5, cy - ch * 0.86],
+      ]) {
+        ctx.beginPath();
+        ctx.arc(jx, jy, jR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    } else if (config.plaqueStyle === "comic-burst") {
+      // High-CTR Pop-Art Comic Starburst Banner
+      const spikes = 22;
+      const rx = bannerW * 0.51;
+      const ry = bannerH * 0.53;
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const ang = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+        const isOuter = i % 2 === 0;
+        const mult = isOuter ? (i % 4 === 0 ? 1.15 : 1.07) : 0.92;
+        const px = bannerCX + Math.cos(ang) * rx * mult;
+        const py = bannerY + Math.sin(ang) * ry * mult;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      fillCurrentPath(customPlaqueBg || "#FEF08A");
+      strokeCurrentPath(config.bannerBoundColor || "#111113", Math.max(strokePx, w * 0.005));
+    } else if (config.plaqueStyle === "floral-arch") {
+      // Trending Cottagecore Botanical Floral Frame
+      const pLeft = left + bannerW * 0.025;
+      const pTop = top + bannerH * 0.04;
+      const pW = bannerW * 0.95;
+      const pH = bannerH * 0.92;
+      const r = customRad ?? bannerH * 0.24;
+      const botCol = config.bannerBoundColor || config.primaryColor || "#15803D";
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFDF9");
+      strokeCurrentPath(botCol, strokePx);
+      const ins = Math.max(9, strokePx * 2);
+      drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(4, r - ins));
+      strokeCurrentPath(botCol, Math.max(1.5, strokePx * 0.45));
+      // Twin corner 5-petal blossoms + leaves
+      clearShadow();
+      const drawBlossom = (bx: number, by: number, flip: number) => {
+        const pr = Math.max(11, w * 0.015);
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.fillStyle = customPlaqueBg || "#FFFFFF";
+        ctx.strokeStyle = botCol;
+        ctx.lineWidth = Math.max(2, strokePx * 0.65);
+        for (const [lx, ly, rot] of [
+          [flip * pr * 1.9, -pr * 0.45, flip * -0.45],
+          [-flip * pr * 0.4, flip * pr * 1.85, flip * 1.15],
+        ]) {
+          ctx.save();
+          ctx.translate(lx, ly);
+          ctx.rotate(rot);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, pr * 1.35, pr * 0.56, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        for (let p = 0; p < 5; p++) {
+          const a = (p / 5) * Math.PI * 2 - Math.PI / 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * pr * 0.88, Math.sin(a) * pr * 0.88, pr * 0.62, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, pr * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = config.secondaryColor || botCol;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      };
+      drawBlossom(pLeft + r * 0.25, pTop + r * 0.22, 1);
+      drawBlossom(pLeft + pW - r * 0.25, pTop + pH - r * 0.22, -1);
+    } else if (config.plaqueStyle === "neon-cyber") {
+      // Trending Luminous Neon Glow Frame
+      const pLeft = left + bannerW * 0.025;
+      const pTop = top + bannerH * 0.04;
+      const pW = bannerW * 0.95;
+      const pH = bannerH * 0.92;
+      const r = customRad ?? bannerH * 0.16;
+      const neonCol = config.bannerBoundColor || "#38BDF8";
+      const fillAlpha = config.bannerBoundBgOpacity !== undefined ? bgOpacity : 0.84;
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#0F172A", fillAlpha);
+      ctx.save();
+      ctx.strokeStyle = neonCol;
+      ctx.lineWidth = Math.max(strokePx, 3.5);
+      ctx.shadowColor = neonCol;
+      ctx.shadowBlur = Math.max(18, w * 0.026);
+      applyDash(ctx.lineWidth);
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      ctx.stroke();
+      ctx.shadowBlur = Math.max(8, w * 0.012);
+      ctx.stroke();
+      // Inner crisp white core line
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = Math.max(1.2, strokePx * 0.32);
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      // Clean Badge ("ribbon-badge")
+      const pLeft = left + bannerW * 0.03;
+      const pTop = top + bannerH * 0.04;
+      const pW = bannerW * 0.94;
+      const pH = bannerH * 0.92;
+      const r = customRad ?? bannerH * 0.14;
+      drawRoundedRectPath(ctx, pLeft, pTop, pW, pH, r);
+      fillCurrentPath(customPlaqueBg || "#FFFFFF");
+      strokeCurrentPath(strokeCol, strokePx);
+      if (boundDash === "double" && strokePx > 0.2) {
+        const ins = Math.max(9, strokePx * 2.2);
+        drawRoundedRectPath(ctx, pLeft + ins, pTop + ins, pW - ins * 2, pH - ins * 2, Math.max(2, r - ins));
+        strokeCurrentPath(strokeCol, Math.max(1.5, strokePx * 0.55));
+      }
     }
   }
   ctx.restore();
@@ -1604,6 +2105,158 @@ function drawFooterBrand(
   ctx.restore();
 }
 
+async function drawFlatLayOpenBookSpread(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  config: ShowcaseDesignConfig
+) {
+  const geom = isFlatLayBackdrop(config.backdrop)
+    ? FLAT_LAY_BOOK_SPREAD_GEOMETRY[config.backdrop]
+    : {
+        cx: 0.5,
+        cy: 0.56,
+        spreadW: 0.78,
+        spreadH: 0.34,
+        angleDeg: 0,
+        paperTint: "#FCF9F2",
+      };
+
+  // Compute cover-fit transform so book coordinates align cleanly across aspect ratios
+  const baseAspect = 2 / 3;
+  const currentAspect = w / h;
+  let refW = w;
+  let refH = h;
+  let offX = 0;
+  let offY = 0;
+  if (currentAspect > baseAspect) {
+    refW = w;
+    refH = w / baseAspect;
+    offY = (h - refH) / 2;
+  } else {
+    refH = h;
+    refW = h * baseAspect;
+    offX = (w - refW) / 2;
+  }
+
+  const cx = offX + geom.cx * refW;
+  const cy = offY + geom.cy * refH;
+  const spreadW = geom.spreadW * refW;
+  const spreadH = geom.spreadH * refH;
+  const pageW = spreadW / 2;
+  const angleRad = (geom.angleDeg * Math.PI) / 180;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angleRad);
+
+  // Subtle drop shadow under spread when used on non-flatlay backdrops
+  if (!isFlatLayBackdrop(config.backdrop)) {
+    ctx.shadowColor = "rgba(0,0,0,0.34)";
+    ctx.shadowBlur = w * 0.035;
+    ctx.shadowOffsetY = h * 0.012;
+  }
+
+  // Natural paper backing for open spread
+  ctx.fillStyle = geom.paperTint;
+  drawRoundedRectPath(ctx, -spreadW / 2, -spreadH / 2, spreadW, spreadH, Math.max(4, w * 0.004));
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  const leftSlot = config.cards[0];
+  const rightSlot = config.cards[1] || config.cards[0];
+  const pageInsetX = pageW * 0.06;
+  const pageInsetY = spreadH * 0.055;
+  const gutterPad = pageW * 0.045;
+
+  const drawBookPageArt = async (
+    slot: ShowcaseCardSlot | undefined,
+    px: number,
+    py: number,
+    pw: number,
+    ph: number
+  ) => {
+    if (!slot?.src) return;
+    try {
+      const img = await loadImageCached(slot.src);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(px, py, pw, ph);
+      ctx.clip();
+
+      const scale = Math.min(pw / img.naturalWidth, ph / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      ctx.drawImage(img, px + (pw - dw) / 2, py + (ph - dh) / 2, dw, dh);
+      ctx.restore();
+    } catch {
+      // ignore failed image decode
+    }
+  };
+
+  // Left Page (index 0)
+  await drawBookPageArt(
+    leftSlot,
+    -spreadW / 2 + pageInsetX,
+    -spreadH / 2 + pageInsetY,
+    pageW - pageInsetX - gutterPad,
+    spreadH - pageInsetY * 2
+  );
+
+  // Right Page (index 1)
+  await drawBookPageArt(
+    rightSlot,
+    gutterPad,
+    -spreadH / 2 + pageInsetY,
+    pageW - pageInsetX - gutterPad,
+    spreadH - pageInsetY * 2
+  );
+
+  // Realistic center spine gutter gradient shadow
+  const spineGrad = ctx.createLinearGradient(-pageW * 0.14, 0, pageW * 0.14, 0);
+  spineGrad.addColorStop(0, "rgba(0,0,0,0)");
+  spineGrad.addColorStop(0.38, "rgba(38,24,14,0.09)");
+  spineGrad.addColorStop(0.5, "rgba(24,15,8,0.28)");
+  spineGrad.addColorStop(0.62, "rgba(38,24,14,0.09)");
+  spineGrad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = spineGrad;
+  ctx.fillRect(-pageW * 0.14, -spreadH / 2, pageW * 0.28, spreadH);
+
+  // Spiral wire binding rings for spiral-bound book scenes
+  if (geom.isSpiral) {
+    const ringCount = 15;
+    const ringSpan = spreadH * 0.88;
+    const startY = -ringSpan / 2;
+    const step = ringSpan / (ringCount - 1);
+    const ringW = pageW * 0.068;
+    ctx.strokeStyle = "#27272A";
+    ctx.lineWidth = Math.max(2.4, w * 0.003);
+    ctx.lineCap = "round";
+    for (let i = 0; i < ringCount; i++) {
+      const ry = startY + i * step;
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.beginPath();
+      ctx.arc(-ringW * 0.58, ry, Math.max(2.2, w * 0.0028), 0, Math.PI * 2);
+      ctx.arc(ringW * 0.58, ry, Math.max(2.2, w * 0.0028), 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(-ringW * 0.58, ry - 1.5);
+      ctx.quadraticCurveTo(0, ry - 4.5, ringW * 0.58, ry - 1.5);
+      ctx.stroke();
+    }
+  }
+
+  // Subtle paper page edges
+  ctx.strokeStyle = "rgba(0,0,0,0.12)";
+  ctx.lineWidth = Math.max(1.2, w * 0.0014);
+  drawRoundedRectPath(ctx, -spreadW / 2, -spreadH / 2, spreadW, spreadH, Math.max(4, w * 0.004));
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 export async function renderShowcaseDesignToCanvas(
   canvas: HTMLCanvasElement,
   config: ShowcaseDesignConfig
@@ -1624,26 +2277,34 @@ export async function renderShowcaseDesignToCanvas(
     }
   }
 
-  // 1. Atmospheric Tabletop Backdrop
+  // 1. Atmospheric Tabletop / Photorealistic Flat-Lay Backdrop
   await drawSceneBackdrop(ctx, width, height, config.backdrop, config.customBackdropSrc);
 
-  // 2. Showcase Artwork Cards
-  const placements = getCardPlacements(config.layout, width, height);
-  for (let i = 0; i < placements.length; i++) {
-    const slot = config.cards[i % config.cards.length];
-    if (slot) {
-      await drawSingleCard(
-        ctx,
-        slot,
-        placements[i],
-        config.showCardCaptions,
-        config.fontFamily
-      );
+  // 2. Showcase Artwork Cards OR Calibrated Flat-Lay Open Book Spread
+  if (config.layout === "flat-lay-book") {
+    if (config.overlayFlatLayPages) {
+      await drawFlatLayOpenBookSpread(ctx, width, height, config);
+    }
+  } else {
+    const placements = getCardPlacements(config.layout, width, height);
+    for (let i = 0; i < placements.length; i++) {
+      const slot = config.cards[i % config.cards.length];
+      if (slot) {
+        await drawSingleCard(
+          ctx,
+          slot,
+          placements[i],
+          config.showCardCaptions,
+          config.fontFamily
+        );
+      }
     }
   }
 
-  // 3. Hero Die-Cut Sticker / Plaque Banner
-  drawHeroBanner(ctx, width, height, config);
+  // 3. Hero Die-Cut Sticker / Plaque Banner (can be toggled off cleanly)
+  if (!config.hideHeroBanner) {
+    drawHeroBanner(ctx, width, height, config);
+  }
 
   // 4. Footer Brand / URL Ribbon
   drawFooterBrand(ctx, width, height, config);

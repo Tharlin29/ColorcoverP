@@ -697,7 +697,7 @@ export function BookPrintPreviewModal({
                 type="button"
                 disabled={!canExportBook || exportingType !== null}
                 onClick={onDownloadZip}
-                title={!canExportBook ? "Select 20–35 pages to export full book" : undefined}
+                title={!canExportBook ? "Select 8–48 pages to export full book" : undefined}
                 className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-zinc-900 bg-white border border-zinc-300 hover:bg-zinc-50 disabled:opacity-45 rounded-lg cursor-pointer"
               >
                 <FileArchive className="w-3.5 h-3.5" />
@@ -709,7 +709,7 @@ export function BookPrintPreviewModal({
                 type="button"
                 disabled={!canExportBook || exportingType !== null}
                 onClick={onDownloadPdf}
-                title={!canExportBook ? "Select 20–35 pages to export full book" : undefined}
+                title={!canExportBook ? "Select 8–48 pages to export full book" : undefined}
                 className="min-h-[38px] inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-zinc-950 hover:bg-zinc-800 disabled:opacity-45 rounded-lg cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5" />
