@@ -262,7 +262,8 @@ export type ShowcaseLayoutId =
   | "clean-grid-4"
   | "diagonal-cascade-5"
   | "spotlight-trio-3"
-  | "flat-lay-book";
+  | "flat-lay-book"
+  | "book-mockup";
 
 export type ShowcaseBackdropId =
   | "festive-pine-desk"
@@ -281,6 +282,20 @@ export type ShowcaseBackdropId =
   | "flatlay-linen-blinds"
   | "flatlay-walnut-botanical"
   | "flatlay-pastel-markers"
+  | "mockup-standing-kids"
+  | "mockup-workbook-pastel"
+  | "mockup-cozy-bundle"
+  | "mockup-front-back"
+  | "mockup-jungle-collage"
+  | "mockup-giftbox-kids"
+  | "mockup-spiral-flip"
+  | "mockup-plush-numbers"
+  | "mockup-look-inside"
+  | "mockup-toddler-trace"
+  | "mockup-animal-facts"
+  | "mockup-cream-infographic"
+  | "mockup-alphabet-hands"
+  | "mockup-collage-secret"
   | "custom";
 
 export type ShowcasePlaqueStyle =

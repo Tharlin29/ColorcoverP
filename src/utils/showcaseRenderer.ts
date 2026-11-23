@@ -7,9 +7,12 @@ import {
   ShowcaseHeroTextStyle,
 } from "../types/studio";
 import {
+  ALL_PHOTO_BACKDROP_URLS,
+  BOOK_MOCKUP_SLOT_GEOMETRY,
   FLAT_LAY_BOOK_SPREAD_GEOMETRY,
-  FLAT_LAY_PHOTO_URLS,
+  isBookMockupBackdrop,
   isFlatLayBackdrop,
+  isPhotoShowcaseBackdrop,
 } from "./flatLayAssets";
 import { drawTextLayerOnCanvas } from "./imageEditor";
 
@@ -408,8 +411,8 @@ async function drawSceneBackdrop(
     }
   }
 
-  if (isFlatLayBackdrop(backdrop)) {
-    const photoSrc = FLAT_LAY_PHOTO_URLS[backdrop];
+  if (isPhotoShowcaseBackdrop(backdrop)) {
+    const photoSrc = ALL_PHOTO_BACKDROP_URLS[backdrop];
     try {
       const img = await loadImageCached(photoSrc);
       const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
@@ -2257,6 +2260,122 @@ async function drawFlatLayOpenBookSpread(
   ctx.restore();
 }
 
+async function drawBookMockupSlots(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  config: ShowcaseDesignConfig
+) {
+  const slots = isBookMockupBackdrop(config.backdrop)
+    ? BOOK_MOCKUP_SLOT_GEOMETRY[config.backdrop]
+    : [
+        {
+          label: "Book Cover",
+          cx: 0.5,
+          cy: 0.54,
+          w: 0.44,
+          h: 0.4,
+          angleDeg: 0,
+          fit: "cover" as const,
+          paperBg: "#FFFFFF",
+          insetPct: 0,
+          spineEdge: "left" as const,
+        },
+      ];
+
+  const baseAspect = 2 / 3;
+  const currentAspect = w / h;
+  let refW = w;
+  let refH = h;
+  let offX = 0;
+  let offY = 0;
+  if (currentAspect > baseAspect) {
+    refW = w;
+    refH = w / baseAspect;
+    offY = (h - refH) / 2;
+  } else {
+    refH = h;
+    refW = h * baseAspect;
+    offX = (w - refW) / 2;
+  }
+
+  for (let i = 0; i < slots.length; i++) {
+    const geom = slots[i];
+    const card = config.cards[i % config.cards.length];
+    if (!card?.src) continue;
+
+    const cx = offX + geom.cx * refW;
+    const cy = offY + geom.cy * refH;
+    const sw = geom.w * refW;
+    const sh = geom.h * refH;
+    const angleRad = (geom.angleDeg * Math.PI) / 180;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angleRad);
+
+    // Subtle grounded shadow
+    ctx.shadowColor = "rgba(0,0,0,0.28)";
+    ctx.shadowBlur = w * 0.024;
+    ctx.shadowOffsetY = h * 0.008;
+    ctx.fillStyle = geom.paperBg;
+    drawRoundedRectPath(ctx, -sw / 2, -sh / 2, sw, sh, Math.max(3, w * 0.003));
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    try {
+      const img = await loadImageCached(card.src);
+      const insetX = sw * (geom.insetPct ?? 0);
+      const insetY = sh * (geom.insetPct ?? 0);
+      const innerW = sw - insetX * 2;
+      const innerH = sh - insetY * 2;
+
+      ctx.save();
+      drawRoundedRectPath(
+        ctx,
+        -sw / 2 + insetX,
+        -sh / 2 + insetY,
+        innerW,
+        innerH,
+        Math.max(2, w * 0.002)
+      );
+      ctx.clip();
+
+      const scale =
+        geom.fit === "cover"
+          ? Math.max(innerW / img.naturalWidth, innerH / img.naturalHeight)
+          : Math.min(innerW / img.naturalWidth, innerH / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+      ctx.restore();
+    } catch {
+      // ignore failed decode
+    }
+
+    // Subtle paperback spine crease highlight along left edge for book covers
+    if (geom.spineEdge === "left") {
+      const creaseW = sw * 0.055;
+      const grad = ctx.createLinearGradient(-sw / 2, 0, -sw / 2 + creaseW, 0);
+      grad.addColorStop(0, "rgba(0,0,0,0.18)");
+      grad.addColorStop(0.35, "rgba(255,255,255,0.22)");
+      grad.addColorStop(0.7, "rgba(0,0,0,0.09)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(-sw / 2, -sh / 2, creaseW, sh);
+    }
+
+    // Fine edge border for realistic print depth
+    ctx.strokeStyle = "rgba(0,0,0,0.14)";
+    ctx.lineWidth = Math.max(1.2, w * 0.0014);
+    drawRoundedRectPath(ctx, -sw / 2, -sh / 2, sw, sh, Math.max(3, w * 0.003));
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
 export async function renderShowcaseDesignToCanvas(
   canvas: HTMLCanvasElement,
   config: ShowcaseDesignConfig
@@ -2277,13 +2396,17 @@ export async function renderShowcaseDesignToCanvas(
     }
   }
 
-  // 1. Atmospheric Tabletop / Photorealistic Flat-Lay Backdrop
+  // 1. Atmospheric Tabletop / Photorealistic Flat-Lay & Book Mockup Backdrop
   await drawSceneBackdrop(ctx, width, height, config.backdrop, config.customBackdropSrc);
 
-  // 2. Showcase Artwork Cards OR Calibrated Flat-Lay Open Book Spread
+  // 2. Showcase Artwork Cards OR Calibrated Flat-Lay / Book Mockup Overlays
   if (config.layout === "flat-lay-book") {
     if (config.overlayFlatLayPages) {
       await drawFlatLayOpenBookSpread(ctx, width, height, config);
+    }
+  } else if (config.layout === "book-mockup") {
+    if (config.overlayFlatLayPages) {
+      await drawBookMockupSlots(ctx, width, height, config);
     }
   } else {
     const placements = getCardPlacements(config.layout, width, height);

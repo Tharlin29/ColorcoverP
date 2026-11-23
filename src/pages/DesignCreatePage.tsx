@@ -37,7 +37,13 @@ import {
   TextLayer,
   TextStylePreset,
 } from "../types/studio";
-import { FLAT_LAY_PHOTO_URLS } from "../utils/flatLayAssets";
+import {
+  BOOK_MOCKUP_PHOTO_URLS,
+  BOOK_MOCKUP_SLOT_GEOMETRY,
+  FLAT_LAY_PHOTO_URLS,
+  getBookMockupSlotCount,
+  isBookMockupBackdrop,
+} from "../utils/flatLayAssets";
 import { FONT_OPTIONS as STUDIO_FONT_OPTIONS } from "../utils/imageEditor";
 import { ART_CARD_PACKS, SHOWCASE_DESIGN_PRESETS, ShowcaseDesignPreset, ShowcasePresetCategory } from "../utils/showcaseArtLibrary";
 import {
@@ -63,6 +69,7 @@ const ASPECT_OPTIONS: { id: ShowcaseAspectId; label: string }[] = [
 ];
 
 const LAYOUT_OPTIONS: { id: ShowcaseLayoutId; label: string; desc: string }[] = [
+  { id: "book-mockup", label: "Book & Bundle Mockup", desc: "3D standing cover, front/back & sheet bundles" },
   { id: "flat-lay-book", label: "Flat-Lay Open Book (2 Pages)", desc: "Photorealistic flat-lay · optional left/right swap" },
   { id: "center-plaque-6", label: "6 Cards + Center Plaque", desc: "3 top · Title center · 3 bottom" },
   { id: "top-banner-5", label: "Top Banner + 5 Fan", desc: "Header · 5 tilted pages" },
@@ -73,6 +80,20 @@ const LAYOUT_OPTIONS: { id: ShowcaseLayoutId; label: string; desc: string }[] = 
 ];
 
 const BACKDROP_OPTIONS: { id: ShowcaseBackdropId; label: string; swatch: string; thumbSrc?: string }[] = [
+  { id: "mockup-giftbox-kids", label: "Kids Gift Box Unboxing", swatch: "linear-gradient(135deg, #FBCFE8, #FDE68A)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-giftbox-kids"] },
+  { id: "mockup-spiral-flip", label: "Spiral Flip Cat Desk", swatch: "linear-gradient(135deg, #F59E0B, #38BDF8)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-spiral-flip"] },
+  { id: "mockup-plush-numbers", label: "Plush Friends Spread", swatch: "linear-gradient(135deg, #FEF08A, #FB923C)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-plush-numbers"] },
+  { id: "mockup-look-inside", label: "Look Inside Split Desk", swatch: "linear-gradient(135deg, #BAE6FD, #86EFAC)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-look-inside"] },
+  { id: "mockup-toddler-trace", label: "Toddler Tracing Desk", swatch: "linear-gradient(135deg, #E9D5FF, #FDE68A)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-toddler-trace"] },
+  { id: "mockup-animal-facts", label: "Animal Fun Facts Spread", swatch: "linear-gradient(135deg, #D97706, #4ADE80)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-animal-facts"] },
+  { id: "mockup-cream-infographic", label: "Cream Studio Infographic", swatch: "linear-gradient(135deg, #FFEDD5, #FBCFE8)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-cream-infographic"] },
+  { id: "mockup-alphabet-hands", label: "Alphabet Overhead Hands", swatch: "linear-gradient(135deg, #FDE047, #60A5FA)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-alphabet-hands"] },
+  { id: "mockup-collage-secret", label: "8-Book Craft Collage", swatch: "linear-gradient(135deg, #B45309, #0D9488)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-collage-secret"] },
+  { id: "mockup-standing-kids", label: "3D Standing Kids Desk", swatch: "linear-gradient(135deg, #FDE68A, #60A5FA)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-standing-kids"] },
+  { id: "mockup-workbook-pastel", label: "Pastel Workbook Spread", swatch: "linear-gradient(135deg, #BAE6FD, #FED7AA)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-workbook-pastel"] },
+  { id: "mockup-cozy-bundle", label: "Cozy Oak Bundle", swatch: "linear-gradient(135deg, #D97706, #EC4899)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-cozy-bundle"] },
+  { id: "mockup-front-back", label: "Front & Back ABC Desk", swatch: "linear-gradient(135deg, #F59E0B, #38BDF8)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-front-back"] },
+  { id: "mockup-jungle-collage", label: "Jungle Desk Collage", swatch: "linear-gradient(135deg, #FDE68A, #F9A8D4)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-jungle-collage"] },
   { id: "flatlay-oak-latte", label: "Cozy Oak & Latte", swatch: "linear-gradient(135deg, #9A6438, #FDE68A)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-oak-latte"] },
   { id: "flatlay-picnic-grass", label: "Picnic Blanket & Grass", swatch: "linear-gradient(135deg, #4D7C0F, #E7DCC8)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-picnic-grass"] },
   { id: "flatlay-linen-blinds", label: "Minimalist Linen Blinds", swatch: "linear-gradient(135deg, #F5F2EB, #A8A29E)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-linen-blinds"] },
@@ -97,6 +118,7 @@ const BACKDROP_SWATCH_MAP: Record<string, string> = Object.fromEntries(
 
 const PRESET_CATEGORY_TABS: { id: "all" | ShowcasePresetCategory; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "mockups", label: "Book Mockups" },
   { id: "flatlay", label: "Flat-Lay" },
   { id: "kids", label: "Kids" },
   { id: "myanmar", label: "Myanmar" },
@@ -697,7 +719,10 @@ export function DesignCreatePage({
     if (!initialPhoto) return;
     setConfig((prev) => ({
       ...prev,
-      overlayFlatLayPages: prev.layout === "flat-lay-book" ? true : prev.overlayFlatLayPages,
+      overlayFlatLayPages:
+        prev.layout === "flat-lay-book" || prev.layout === "book-mockup"
+          ? true
+          : prev.overlayFlatLayPages,
       cards: prev.cards.map((c, idx) =>
         idx === 0
           ? {
@@ -779,12 +804,16 @@ export function DesignCreatePage({
   const applyPreset = (presetId: string) => {
     const found = SHOWCASE_DESIGN_PRESETS.find((p) => p.id === presetId);
     if (!found) return;
+    const clonedLayers = found.config.customTextLayers
+      ? found.config.customTextLayers.map((l) => ({ ...l }))
+      : [];
     setActivePresetId(found.id);
     setConfig({
       ...found.config,
       cards: found.config.cards.map((c) => ({ ...c })),
+      customTextLayers: clonedLayers,
     });
-    setActiveCustomTextId("");
+    setActiveCustomTextId(clonedLayers[0]?.id || "");
     setAiNotice(null);
     setAiError(null);
   };
@@ -881,7 +910,10 @@ export function DesignCreatePage({
       const cleanName = file.name.replace(/\.[^.]+$/, "") || "Uploaded Card";
       setConfig((prev) => ({
         ...prev,
-        overlayFlatLayPages: prev.layout === "flat-lay-book" ? true : prev.overlayFlatLayPages,
+        overlayFlatLayPages:
+          prev.layout === "flat-lay-book" || prev.layout === "book-mockup"
+            ? true
+            : prev.overlayFlatLayPages,
         cards: prev.cards.map((c, idx) =>
           idx === uploadTargetSlotIdx ? { ...c, src: dataUrl, label: cleanName } : c
         ),
@@ -971,17 +1003,19 @@ export function DesignCreatePage({
   };
 
   const visibleCardCount =
-    config.layout === "flat-lay-book"
-      ? 2
-      : config.layout === "center-plaque-6"
-        ? 6
-        : config.layout === "top-banner-5" ||
-            config.layout === "hero-plus-4" ||
-            config.layout === "diagonal-cascade-5"
-          ? 5
-          : config.layout === "spotlight-trio-3"
-            ? 3
-            : 4;
+    config.layout === "book-mockup"
+      ? getBookMockupSlotCount(config.backdrop)
+      : config.layout === "flat-lay-book"
+        ? 2
+        : config.layout === "center-plaque-6"
+          ? 6
+          : config.layout === "top-banner-5" ||
+              config.layout === "hero-plus-4" ||
+              config.layout === "diagonal-cascade-5"
+            ? 5
+            : config.layout === "spotlight-trio-3"
+              ? 3
+              : 4;
 
   const filteredPresets =
     presetCategory === "all"
@@ -1437,7 +1471,26 @@ export function DesignCreatePage({
                         <button
                           key={bg.id}
                           type="button"
-                          onClick={() => updateConfig({ backdrop: bg.id })}
+                          onClick={() =>
+                            setConfig((prev) => {
+                              const needed = isBookMockupBackdrop(bg.id)
+                                ? getBookMockupSlotCount(bg.id)
+                                : prev.cards.length;
+                              if (prev.cards.length >= needed) {
+                                return { ...prev, backdrop: bg.id };
+                              }
+                              const padded = [...prev.cards];
+                              const fallbackPool = ART_CARD_PACKS[2].cards;
+                              while (padded.length < needed) {
+                                const srcCard = fallbackPool[padded.length % fallbackPool.length];
+                                padded.push({
+                                  ...srcCard,
+                                  id: `pad-${bg.id}-${padded.length}`,
+                                });
+                              }
+                              return { ...prev, backdrop: bg.id, cards: padded };
+                            })
+                          }
                           className={`p-2 rounded-xl border text-left flex items-center gap-2 cursor-pointer ${
                             config.backdrop === bg.id
                               ? "border-zinc-950 bg-zinc-950 text-white"
@@ -2542,15 +2595,19 @@ export function DesignCreatePage({
 
               {inspectorTab === "cards" && (
                 <>
-                  {config.layout === "flat-lay-book" && (
+                  {(config.layout === "flat-lay-book" || config.layout === "book-mockup") && (
                     <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <span className="text-xs font-semibold text-zinc-900 block">
-                            Flat-Lay Open Coloring Book Pages
+                            {config.layout === "book-mockup"
+                              ? "Book & Bundle Mockup Artwork"
+                              : "Flat-Lay Open Coloring Book Pages"}
                           </span>
                           <span className="text-[11px] text-zinc-500">
-                            Keep the authentic photographed book pages or overlay your own Left &amp; Right pages.
+                            {config.layout === "book-mockup"
+                              ? "Show the original commercial mockup art or swap your own cover & printable sheets."
+                              : "Keep the authentic photographed book pages or overlay your own Left & Right pages."}
                           </span>
                         </div>
                       </div>
@@ -2564,7 +2621,9 @@ export function DesignCreatePage({
                               : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
                           }`}
                         >
-                          Original Photo Pages
+                          {config.layout === "book-mockup"
+                            ? "Original Photo Mockup"
+                            : "Original Photo Pages"}
                         </button>
                         <button
                           type="button"
@@ -2575,7 +2634,9 @@ export function DesignCreatePage({
                               : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
                           }`}
                         >
-                          Overlay Custom Left &amp; Right Pages
+                          {config.layout === "book-mockup"
+                            ? "Overlay Custom Cover & Sheets"
+                            : "Overlay Custom Left & Right Pages"}
                         </button>
                       </div>
                     </div>
@@ -2587,7 +2648,10 @@ export function DesignCreatePage({
                         type="button"
                         disabled={photos.length === 0}
                         onClick={() => {
-                          if (config.layout === "flat-lay-book") {
+                          if (
+                            config.layout === "flat-lay-book" ||
+                            config.layout === "book-mockup"
+                          ) {
                             updateConfig({ overlayFlatLayPages: true });
                           }
                           handleFillCardsFromPhotoHall();
@@ -2648,11 +2712,15 @@ export function DesignCreatePage({
                             <div className="min-w-0 flex-1 space-y-1.5">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-zinc-900 truncate">
-                                  {config.layout === "flat-lay-book"
-                                    ? idx === 0
-                                      ? `Left Book Page · ${card.label}`
-                                      : `Right Book Page · ${card.label}`
-                                    : `#${idx + 1} · ${card.label}`}
+                                  {config.layout === "book-mockup" &&
+                                  isBookMockupBackdrop(config.backdrop) &&
+                                  BOOK_MOCKUP_SLOT_GEOMETRY[config.backdrop][idx]
+                                    ? `${BOOK_MOCKUP_SLOT_GEOMETRY[config.backdrop][idx].label} · ${card.label}`
+                                    : config.layout === "flat-lay-book"
+                                      ? idx === 0
+                                        ? `Left Book Page · ${card.label}`
+                                        : `Right Book Page · ${card.label}`
+                                      : `#${idx + 1} · ${card.label}`}
                                 </span>
                                 <button
                                   type="button"
@@ -2881,7 +2949,10 @@ export function DesignCreatePage({
                             key={`slot-pick-${photo.id}`}
                             type="button"
                             onClick={() => {
-                              if (config.layout === "flat-lay-book") {
+                              if (
+                                config.layout === "flat-lay-book" ||
+                                config.layout === "book-mockup"
+                              ) {
                                 updateConfig({ overlayFlatLayPages: true });
                               }
                               updateCardSlot(hallPickerSlotIdx, {
