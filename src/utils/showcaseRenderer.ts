@@ -916,13 +916,17 @@ async function drawSingleCard(
   ctx.translate(cx, cy);
   ctx.rotate(angleRad);
 
+  const frameStyle = slot.frameStyle || "paper";
+  const isClean = frameStyle === "clean";
+  const isPolaroid = frameStyle === "polaroid";
+
   // Realistic soft multi-layer drop shadow
   ctx.shadowColor = "rgba(0, 0, 0, 0.44)";
   ctx.shadowBlur = cardW * 0.085;
   ctx.shadowOffsetX = cardW * 0.018;
   ctx.shadowOffsetY = cardW * 0.042;
 
-  ctx.fillStyle = getPaperColor(slot.paper);
+  ctx.fillStyle = isClean ? "rgba(255,255,255,0.01)" : getPaperColor(slot.paper);
   drawRoundedRectPath(ctx, -cardW / 2, -cardH / 2, cardW, cardH, cardW * 0.025);
   ctx.fill();
 
@@ -931,16 +935,21 @@ async function drawSingleCard(
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  ctx.strokeStyle = "rgba(255,255,255,0.45)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  if (!isClean) {
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 
-  const pad = cardW * 0.04;
-  const captionH = showCaption && (slot.caption || slot.label) ? cardH * 0.12 : 0;
+  const pad = isClean ? 0 : cardW * (isPolaroid ? 0.055 : 0.04);
+  const polaroidExtraBottom = isPolaroid ? cardH * 0.12 : 0;
+  const captionH =
+    !isClean && showCaption && (slot.caption || slot.label) ? cardH * 0.12 : 0;
+  const bottomPad = Math.max(pad + captionH, pad + polaroidExtraBottom);
   const innerX = -cardW / 2 + pad;
   const innerY = -cardH / 2 + pad;
   const innerW = cardW - pad * 2;
-  const innerH = cardH - pad * 2 - captionH;
+  const innerH = Math.max(16, cardH - pad - bottomPad);
 
   if (loadedImg) {
     ctx.save();
@@ -2304,11 +2313,13 @@ async function drawBookMockupSlots(
     const card = config.cards[i % config.cards.length];
     if (!card?.src) continue;
 
-    const cx = offX + geom.cx * refW;
-    const cy = offY + geom.cy * refH;
-    const sw = geom.w * refW;
-    const sh = geom.h * refH;
-    const angleRad = (geom.angleDeg * Math.PI) / 180;
+    const scaleMult = Math.max(0.35, Math.min(2.2, card.scale ?? 1));
+    const cx = card.x !== undefined ? (card.x / 100) * w : offX + geom.cx * refW;
+    const cy = card.y !== undefined ? (card.y / 100) * h : offY + geom.cy * refH;
+    const sw = geom.w * refW * scaleMult;
+    const sh = geom.h * refH * scaleMult;
+    const angleDeg = card.rotation !== undefined ? card.rotation : geom.angleDeg;
+    const angleRad = (angleDeg * Math.PI) / 180;
 
     ctx.save();
     ctx.translate(cx, cy);
@@ -2376,25 +2387,193 @@ async function drawBookMockupSlots(
   }
 }
 
+export interface ResolvedShowcaseCardRect {
+  id: string;
+  source: "slot" | "custom";
+  index: number;
+  label: string;
+  cx: number;
+  cy: number;
+  cardW: number;
+  cardH: number;
+  angleDeg: number;
+  canvasW: number;
+  canvasH: number;
+}
+
+function resolveSlotPlacement(
+  slot: ShowcaseCardSlot,
+  base: CardPlacement,
+  w: number,
+  h: number
+): CardPlacement {
+  const scaleMult = Math.max(0.35, Math.min(2.2, slot.scale ?? 1));
+  const cardW =
+    slot.widthPct !== undefined ? (slot.widthPct / 100) * w : base.cardW * scaleMult;
+  const cardH =
+    slot.widthPct !== undefined
+      ? cardW * (base.cardH / Math.max(1, base.cardW))
+      : base.cardH * scaleMult;
+  const cx = slot.x !== undefined ? (slot.x / 100) * w : base.cx;
+  const cy = slot.y !== undefined ? (slot.y / 100) * h : base.cy;
+  const angleRad =
+    slot.rotation !== undefined ? (slot.rotation * Math.PI) / 180 : base.angleRad;
+  return { cx, cy, cardW, cardH, angleRad };
+}
+
+function resolveCustomCardPlacement(
+  card: ShowcaseCardSlot,
+  w: number,
+  h: number
+): CardPlacement {
+  const widthPct = Math.max(10, Math.min(92, card.widthPct ?? 34));
+  const cardW = (widthPct / 100) * w;
+  const ratio =
+    card.aspectRatio && Number.isFinite(card.aspectRatio) && card.aspectRatio > 0.2
+      ? Math.max(0.4, Math.min(2.4, card.aspectRatio))
+      : 0.78;
+  const extraPolaroid = card.frameStyle === "polaroid" ? 1.12 : 1;
+  const cardH = (cardW / ratio) * extraPolaroid;
+  const cx = ((card.x ?? 50) / 100) * w;
+  const cy = ((card.y ?? 54) / 100) * h;
+  const angleRad = ((card.rotation ?? 0) * Math.PI) / 180;
+  return { cx, cy, cardW, cardH, angleRad };
+}
+
+export function getResolvedShowcaseCardRects(
+  config: ShowcaseDesignConfig
+): ResolvedShowcaseCardRect[] {
+  const { width, height } = getShowcaseCanvasSize(config.aspect);
+  const rects: ResolvedShowcaseCardRect[] = [];
+
+  if (config.layout === "book-mockup" && config.overlayFlatLayPages) {
+    const slots = isBookMockupBackdrop(config.backdrop)
+      ? BOOK_MOCKUP_SLOT_GEOMETRY[config.backdrop]
+      : [
+          {
+            label: "Book Cover",
+            cx: 0.5,
+            cy: 0.54,
+            w: 0.44,
+            h: 0.4,
+            angleDeg: 0,
+            fit: "cover" as const,
+            paperBg: "#FFFFFF",
+            insetPct: 0,
+            spineEdge: "left" as const,
+          },
+        ];
+
+    const baseAspect = 2 / 3;
+    const currentAspect = width / height;
+    let refW = width;
+    let refH = height;
+    let offX = 0;
+    let offY = 0;
+    if (currentAspect > baseAspect) {
+      refW = width;
+      refH = width / baseAspect;
+      offY = (height - refH) / 2;
+    } else {
+      refH = height;
+      refW = height * baseAspect;
+      offX = (width - refW) / 2;
+    }
+
+    for (let i = 0; i < slots.length; i++) {
+      const geom = slots[i];
+      const card = config.cards[i % config.cards.length];
+      if (!card?.src) continue;
+      const scaleMult = Math.max(0.35, Math.min(2.2, card.scale ?? 1));
+      rects.push({
+        id: card.id,
+        source: "slot",
+        index: i,
+        label: geom.label || card.label || `Card #${i + 1}`,
+        cx: card.x !== undefined ? (card.x / 100) * width : offX + geom.cx * refW,
+        cy: card.y !== undefined ? (card.y / 100) * height : offY + geom.cy * refH,
+        cardW: geom.w * refW * scaleMult,
+        cardH: geom.h * refH * scaleMult,
+        angleDeg: card.rotation !== undefined ? card.rotation : geom.angleDeg,
+        canvasW: width,
+        canvasH: height,
+      });
+    }
+  } else if (config.layout !== "flat-lay-book" && config.layout !== "book-mockup") {
+    const placements = getCardPlacements(config.layout, width, height);
+    for (let i = 0; i < placements.length; i++) {
+      const slot = config.cards[i % config.cards.length];
+      if (!slot) continue;
+      const p = resolveSlotPlacement(slot, placements[i], width, height);
+      rects.push({
+        id: slot.id,
+        source: "slot",
+        index: i,
+        label: slot.label || `Card #${i + 1}`,
+        cx: p.cx,
+        cy: p.cy,
+        cardW: p.cardW,
+        cardH: p.cardH,
+        angleDeg: (p.angleRad * 180) / Math.PI,
+        canvasW: width,
+        canvasH: height,
+      });
+    }
+  }
+
+  // Custom added floating cards (always interactive on top!)
+  if (config.customCards && config.customCards.length > 0) {
+    config.customCards.forEach((card, i) => {
+      const p = resolveCustomCardPlacement(card, width, height);
+      rects.push({
+        id: card.id,
+        source: "custom",
+        index: i,
+        label: card.label || `Custom Card #${i + 1}`,
+        cx: p.cx,
+        cy: p.cy,
+        cardW: p.cardW,
+        cardH: p.cardH,
+        angleDeg: card.rotation ?? 0,
+        canvasW: width,
+        canvasH: height,
+      });
+    });
+  }
+
+  return rects;
+}
+
 export async function renderShowcaseDesignToCanvas(
   canvas: HTMLCanvasElement,
-  config: ShowcaseDesignConfig
+  config: ShowcaseDesignConfig,
+  options?: { previewScale?: number; waitForFonts?: boolean }
 ): Promise<void> {
   const { width, height } = getShowcaseCanvasSize(config.aspect);
-  if (canvas.width !== width) canvas.width = width;
-  if (canvas.height !== height) canvas.height = height;
+  const scale = Math.max(0.4, Math.min(1, options?.previewScale ?? 1));
+  const targetW = Math.round(width * scale);
+  const targetH = Math.round(height * scale);
+
+  if (canvas.width !== targetW) canvas.width = targetW;
+  if (canvas.height !== targetH) canvas.height = targetH;
 
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  // Ensure Google Fonts are settled before drawing text
-  if (typeof document !== "undefined" && document.fonts?.ready) {
+  // Only wait briefly for fonts during full-res export; never block live preview!
+  if (options?.waitForFonts && typeof document !== "undefined" && document.fonts?.ready) {
     try {
-      await document.fonts.ready;
+      await Promise.race([
+        document.fonts.ready,
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
     } catch {
       // ignore font loading timeout
     }
   }
+
+  ctx.save();
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   // 1. Atmospheric Tabletop / Photorealistic Flat-Lay & Book Mockup Backdrop
   await drawSceneBackdrop(ctx, width, height, config.backdrop, config.customBackdropSrc);
@@ -2413,14 +2592,29 @@ export async function renderShowcaseDesignToCanvas(
     for (let i = 0; i < placements.length; i++) {
       const slot = config.cards[i % config.cards.length];
       if (slot) {
+        const resolved = resolveSlotPlacement(slot, placements[i], width, height);
         await drawSingleCard(
           ctx,
           slot,
-          placements[i],
+          resolved,
           config.showCardCaptions,
           config.fontFamily
         );
       }
+    }
+  }
+
+  // 2b. Custom User-Added Image Cards positioned behind banner
+  const customCards = config.customCards || [];
+  for (const card of customCards) {
+    if (card.aboveBanner === false) {
+      await drawSingleCard(
+        ctx,
+        card,
+        resolveCustomCardPlacement(card, width, height),
+        config.showCardCaptions,
+        config.fontFamily
+      );
     }
   }
 
@@ -2432,12 +2626,27 @@ export async function renderShowcaseDesignToCanvas(
   // 4. Footer Brand / URL Ribbon
   drawFooterBrand(ctx, width, height, config);
 
+  // 4b. Custom User-Added Image Cards positioned on top of banner (default)
+  for (const card of customCards) {
+    if (card.aboveBanner !== false) {
+      await drawSingleCard(
+        ctx,
+        card,
+        resolveCustomCardPlacement(card, width, height),
+        config.showCardCaptions,
+        config.fontFamily
+      );
+    }
+  }
+
   // 5. Optional Free Custom Text Overlays on Top of Entire Design
   if (config.customTextLayers && config.customTextLayers.length > 0) {
     for (const layer of config.customTextLayers) {
       drawTextLayerOnCanvas(ctx, layer, width, height);
     }
   }
+
+  ctx.restore();
 }
 
 export async function exportShowcaseDesignDataUrl(
@@ -2447,7 +2656,10 @@ export async function exportShowcaseDesignDataUrl(
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  await renderShowcaseDesignToCanvas(canvas, config);
+  await renderShowcaseDesignToCanvas(canvas, config, {
+    previewScale: 1,
+    waitForFonts: true,
+  });
   return {
     dataUrl: canvas.toDataURL("image/png"),
     width,

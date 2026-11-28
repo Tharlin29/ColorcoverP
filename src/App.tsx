@@ -1,19 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
-import { PhotoEditModal } from "./components/PhotoEditModal";
-import { PhotoHallModal } from "./components/PhotoHallModal";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { StudioErrorBoundary } from "./components/StudioErrorBoundary";
 import { TopBar } from "./components/TopBar";
-import { AiImageEditPage } from "./pages/AiImageEditPage";
-import { BookBuilderPage } from "./pages/BookBuilderPage";
-import { DesignCreatePage } from "./pages/DesignCreatePage";
-import { PhotoCreatePage } from "./pages/PhotoCreatePage";
-import { SelectErasePage } from "./pages/SelectErasePage";
-import { TextStudioPage } from "./pages/TextStudioPage";
+import { WorkspaceSkeleton } from "./components/WorkspaceSkeleton";
 import { PageId, PhotoItem } from "./types/studio";
 import {
   deletePhoto,
+  deletePhotos,
   getAllPhotos,
   savePhoto,
+  savePhotos,
 } from "./utils/storage";
+
+const DesignCreatePage = lazy(() =>
+  import("./pages/DesignCreatePage").then((m) => ({ default: m.DesignCreatePage }))
+);
+const BackPageFlyerPage = lazy(() =>
+  import("./pages/BackPageFlyerPage").then((m) => ({ default: m.BackPageFlyerPage }))
+);
+const BookBuilderPage = lazy(() =>
+  import("./pages/BookBuilderPage").then((m) => ({ default: m.BookBuilderPage }))
+);
+const TextStudioPage = lazy(() =>
+  import("./pages/TextStudioPage").then((m) => ({ default: m.TextStudioPage }))
+);
+const AiImageEditPage = lazy(() =>
+  import("./pages/AiImageEditPage").then((m) => ({ default: m.AiImageEditPage }))
+);
+
+const PhotoEditModal = lazy(() =>
+  import("./components/PhotoEditModal").then((m) => ({ default: m.PhotoEditModal }))
+);
+const PhotoHallModal = lazy(() =>
+  import("./components/PhotoHallModal").then((m) => ({ default: m.PhotoHallModal }))
+);
 
 export default function App() {
   const [activePage, setActivePage] = useState<PageId>("design");
@@ -23,8 +42,12 @@ export default function App() {
   const [handoffPhoto, setHandoffPhoto] = useState<PhotoItem | null>(null);
 
   const refreshLibrary = useCallback(async () => {
-    const loadedPhotos = await getAllPhotos();
-    setPhotos(loadedPhotos);
+    try {
+      const loadedPhotos = await getAllPhotos();
+      setPhotos(loadedPhotos);
+    } catch {
+      // Fault-tolerant fallback: keep current in-memory library state
+    }
   }, []);
 
   useEffect(() => {
@@ -41,8 +64,23 @@ export default function App() {
     await refreshLibrary();
   };
 
+  const handleSavePhotos = async (items: PhotoItem[]) => {
+    await savePhotos(items);
+    await refreshLibrary();
+  };
+
   const handleDeletePhoto = async (id: string) => {
     await deletePhoto(id);
+    await refreshLibrary();
+  };
+
+  const handleDeletePhotos = async (ids: string[]) => {
+    await deletePhotos(ids);
+    await refreshLibrary();
+  };
+
+  const handleRestorePhotos = async (items: PhotoItem[]) => {
+    await savePhotos(items);
     await refreshLibrary();
   };
 
@@ -64,87 +102,107 @@ export default function App() {
       />
 
       <main className="flex-1">
-        {activePage === "design" && (
-          <DesignCreatePage
-            photos={photos}
-            initialPhoto={handoffPhoto}
-            onNavigate={navigateTo}
-            onSaveNewPhoto={handleSavePhoto}
-            onSendToPage={handleSendToPage}
-          />
-        )}
+        <StudioErrorBoundary
+          resetKey={activePage}
+          onResetHome={() => {
+            setHandoffPhoto(null);
+            navigateTo("design");
+          }}
+        >
+          <Suspense fallback={<WorkspaceSkeleton />}>
+            {activePage === "design" && (
+              <DesignCreatePage
+                photos={photos}
+                initialPhoto={handoffPhoto}
+                onNavigate={navigateTo}
+                onSaveNewPhoto={handleSavePhoto}
+                onSendToPage={handleSendToPage}
+              />
+            )}
 
-        {activePage === "erase" && (
-          <SelectErasePage
-            photos={photos}
-            initialPhoto={handoffPhoto}
-            onSaveNewPhoto={handleSavePhoto}
-            onSendToPage={handleSendToPage}
-          />
-        )}
+            {activePage === "flyer" && (
+              <BackPageFlyerPage
+                photos={photos}
+                initialPhoto={handoffPhoto}
+                onSaveNewPhoto={handleSavePhoto}
+                onBackHome={() => navigateTo("design")}
+              />
+            )}
 
-        {activePage === "create" && (
-          <PhotoCreatePage
-            photos={photos}
-            onSaveNewPhoto={handleSavePhoto}
-            onEditPhoto={(photo) => setEditingPhoto(photo)}
-            onDeletePhoto={handleDeletePhoto}
-            onSendToPage={handleSendToPage}
-            onBackHome={() => navigateTo("design")}
-          />
-        )}
+            {activePage === "book" && (
+              <BookBuilderPage
+                photos={photos}
+                initialPhoto={handoffPhoto}
+                onSaveNewPhoto={handleSavePhoto}
+                onBackHome={() => navigateTo("design")}
+              />
+            )}
 
-        {activePage === "book" && (
-          <BookBuilderPage
-            photos={photos}
-            initialPhoto={handoffPhoto}
-            onSaveNewPhoto={handleSavePhoto}
-            onBackHome={() => navigateTo("design")}
-          />
-        )}
+            {activePage === "text" && (
+              <TextStudioPage
+                photos={photos}
+                initialPhoto={handoffPhoto}
+                onSaveToPhotoHall={handleSavePhoto}
+                onBackHome={() => navigateTo("design")}
+              />
+            )}
 
-        {activePage === "text" && (
-          <TextStudioPage
-            photos={photos}
-            initialPhoto={handoffPhoto}
-            onSaveToPhotoHall={handleSavePhoto}
-            onBackHome={() => navigateTo("design")}
-          />
-        )}
-
-        {activePage === "ai-edit" && (
-          <AiImageEditPage
-            photos={photos}
-            initialPhoto={handoffPhoto}
-            onSaveNewPhoto={handleSavePhoto}
-            onSendToPage={handleSendToPage}
-            onBackHome={() => navigateTo("design")}
-          />
-        )}
+            {activePage === "ai-edit" && (
+              <AiImageEditPage
+                photos={photos}
+                initialPhoto={handoffPhoto}
+                onSaveNewPhoto={handleSavePhoto}
+                onSavePhotos={handleSavePhotos}
+                onSendToPage={handleSendToPage}
+                onBackHome={() => navigateTo("design")}
+              />
+            )}
+          </Suspense>
+        </StudioErrorBoundary>
       </main>
 
       <footer className="hidden md:block border-t border-zinc-200/80 py-6 px-8 text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <span>Lumina Studio · Coloring Book (300+ DPI), Book Builder & Typography</span>
+          <span>GBTK STUDIO · Printable Page &amp; Coloring Books (300+ DPI)</span>
           <span className="tabular-nums">{photos.length} pages in Photo Hall</span>
         </div>
       </footer>
 
-      <PhotoEditModal
-        photo={editingPhoto}
-        onClose={() => setEditingPhoto(null)}
-        onSaveOverwrite={handleSavePhoto}
-        onSaveAsCopy={handleSavePhoto}
-      />
+      {editingPhoto && (
+        <StudioErrorBoundary
+          resetKey={editingPhoto.id}
+          onResetHome={() => setEditingPhoto(null)}
+        >
+          <Suspense fallback={null}>
+            <PhotoEditModal
+              photo={editingPhoto}
+              onClose={() => setEditingPhoto(null)}
+              onSaveOverwrite={handleSavePhoto}
+              onSaveAsCopy={handleSavePhoto}
+            />
+          </Suspense>
+        </StudioErrorBoundary>
+      )}
 
-      <PhotoHallModal
-        open={photoHallOpen}
-        photos={photos}
-        onClose={() => setPhotoHallOpen(false)}
-        onEditPhoto={(photo) => setEditingPhoto(photo)}
-        onDeletePhoto={handleDeletePhoto}
-        onSendToPage={handleSendToPage}
-      />
+      {photoHallOpen && (
+        <StudioErrorBoundary
+          resetKey="photo-hall"
+          onResetHome={() => setPhotoHallOpen(false)}
+        >
+          <Suspense fallback={null}>
+            <PhotoHallModal
+              open={photoHallOpen}
+              photos={photos}
+              onClose={() => setPhotoHallOpen(false)}
+              onEditPhoto={(photo) => setEditingPhoto(photo)}
+              onDeletePhoto={handleDeletePhoto}
+              onDeletePhotos={handleDeletePhotos}
+              onRestorePhotos={handleRestorePhotos}
+              onSendToPage={handleSendToPage}
+            />
+          </Suspense>
+        </StudioErrorBoundary>
+      )}
     </div>
   );
 }

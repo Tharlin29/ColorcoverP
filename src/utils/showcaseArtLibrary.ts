@@ -1,5 +1,5 @@
 import { ShowcaseCardSlot, ShowcaseDesignConfig } from "../types/studio";
-import { BOOK_MOCKUP_PHOTO_URLS, FLAT_LAY_PHOTO_URLS } from "./flatLayAssets";
+import { BOOK_MOCKUP_THUMB_URLS, FLAT_LAY_THUMB_URLS } from "./flatLayAssets";
 import { svgToDataUrl } from "./stickerLibrary";
 
 // ---------------------------------------------------------------------------
@@ -930,14 +930,433 @@ export interface ShowcaseDesignPreset {
   config: ShowcaseDesignConfig;
 }
 
+function christmasStickersWindowSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 720" width="560" height="720">
+  <defs>
+    <filter id="st-sh" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <!-- Crisp White App Window -->
+  <rect x="4" y="4" width="552" height="712" rx="22" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="2"/>
+  <!-- Top Window Bar -->
+  <circle cx="30" cy="28" r="7" fill="#EF4444"/>
+  <circle cx="52" cy="28" r="7" fill="#F59E0B"/>
+  <circle cx="74" cy="28" r="7" fill="#10B981"/>
+  <text x="280" y="33" text-anchor="middle" font-family="'Outfit', sans-serif" font-size="16" font-weight="600" fill="#3F3F46">Christmas Printable PDF/PNG</text>
+  <line x1="16" y1="48" x2="544" y2="48" stroke="#F4F4F5" stroke-width="2"/>
+
+  <!-- Row 1: Santa on Gold Star + 3 Gift Boxes -->
+  <g filter="url(#st-sh)">
+    <!-- Gold Star Santa -->
+    <g transform="translate(116 142)">
+      <polygon points="0,-72 22,-22 76,-18 34,18 48,70 0,40 -48,70 -34,18 -76,-18 -22,-22" fill="#F59E0B" stroke="#FFFFFF" stroke-width="10" stroke-linejoin="round"/>
+      <polygon points="0,-66 19,-20 68,-16 30,15 43,62 0,36 -43,62 -30,15 -68,-16 -19,-20" fill="#FBBF24"/>
+      <circle cx="0" cy="-14" r="24" fill="#FDE2C8"/>
+      <path d="M-24,-22 Q0,-56 24,-22 Z" fill="#DC2626"/>
+      <rect x="-26" y="-26" width="52" height="10" rx="5" fill="#FFFFFF"/>
+      <circle cx="24" cy="-38" r="7" fill="#FFFFFF"/>
+      <path d="M-22,-4 Q0,26 22,-4 Z" fill="#FFFFFF"/>
+      <circle cx="-8" cy="-14" r="3" fill="#18181B"/>
+      <circle cx="8" cy="-14" r="3" fill="#18181B"/>
+      <circle cx="0" cy="-8" r="4" fill="#F87171"/>
+      <rect x="-22" y="14" width="44" height="28" rx="10" fill="#DC2626"/>
+      <rect x="-22" y="25" width="44" height="7" fill="#18181B"/>
+      <rect x="-6" y="24" width="12" height="9" rx="2" fill="#FACC15"/>
+    </g>
+    <!-- Gift 1 (White/Red) -->
+    <g transform="translate(248 118)">
+      <rect x="-36" y="-34" width="72" height="68" rx="10" fill="#F8FAFC" stroke="#FFFFFF" stroke-width="10"/>
+      <rect x="-34" y="-32" width="68" height="64" rx="8" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="2"/>
+      <rect x="-8" y="-32" width="16" height="64" fill="#DC2626"/>
+      <rect x="-34" y="-6" width="68" height="14" fill="#DC2626"/>
+      <ellipse cx="-14" cy="-38" rx="14" ry="8" fill="#DC2626"/>
+      <ellipse cx="14" cy="-38" rx="14" ry="8" fill="#DC2626"/>
+    </g>
+    <!-- Gift 2 (Red/Gold) -->
+    <g transform="translate(356 132)">
+      <rect x="-34" y="-32" width="68" height="64" rx="10" fill="#DC2626" stroke="#FFFFFF" stroke-width="10"/>
+      <rect x="-32" y="-30" width="64" height="60" rx="8" fill="#DC2626"/>
+      <rect x="-7" y="-30" width="14" height="60" fill="#FBBF24"/>
+      <rect x="-32" y="-5" width="64" height="12" fill="#FBBF24"/>
+      <ellipse cx="-12" cy="-36" rx="13" ry="7" fill="#FBBF24"/>
+      <ellipse cx="12" cy="-36" rx="13" ry="7" fill="#FBBF24"/>
+    </g>
+    <!-- Gift 3 (Cream/Gold) -->
+    <g transform="translate(466 122)">
+      <rect x="-38" y="-38" width="76" height="76" rx="12" fill="#FEF3C7" stroke="#FFFFFF" stroke-width="10"/>
+      <rect x="-36" y="-36" width="72" height="72" rx="10" fill="#FFFBEB" stroke="#FDE68A" stroke-width="2"/>
+      <rect x="-8" y="-36" width="16" height="72" fill="#EAB308"/>
+      <rect x="-36" y="-6" width="72" height="14" fill="#EAB308"/>
+      <ellipse cx="-15" cy="-42" rx="15" ry="9" fill="#EAB308"/>
+      <ellipse cx="15" cy="-42" rx="15" ry="9" fill="#EAB308"/>
+    </g>
+
+    <!-- Row 2: Ornaments, Candy Canes, Green Gift, Merry Christmas -->
+    <g transform="translate(270 250)">
+      <circle cx="0" cy="6" r="36" fill="#0F766E" stroke="#FFFFFF" stroke-width="10"/>
+      <circle cx="0" cy="6" r="34" fill="#14B8A6"/>
+      <rect x="-34" y="-2" width="68" height="16" fill="#DC2626"/>
+      <circle cx="-14" cy="6" r="4" fill="#FEF08A"/>
+      <circle cx="0" cy="6" r="4" fill="#FEF08A"/>
+      <circle cx="14" cy="6" r="4" fill="#FEF08A"/>
+      <rect x="-9" y="-36" width="18" height="10" rx="3" fill="#EAB308"/>
+    </g>
+    <g transform="translate(374 268)">
+      <circle cx="0" cy="6" r="35" fill="#15803D" stroke="#FFFFFF" stroke-width="10"/>
+      <circle cx="0" cy="6" r="33" fill="#228B56"/>
+      <rect x="-33" y="-1" width="66" height="14" fill="#D97706"/>
+      <circle cx="-12" cy="6" r="3.5" fill="#FFFFFF"/>
+      <circle cx="0" cy="6" r="3.5" fill="#FFFFFF"/>
+      <circle cx="12" cy="6" r="3.5" fill="#FFFFFF"/>
+      <rect x="-9" y="-35" width="18" height="10" rx="3" fill="#EAB308"/>
+    </g>
+    <!-- Large Candy Cane Right -->
+    <g transform="translate(476 268)">
+      <path d="M-24,-40 C-24,-74 26,-74 26,-36 L14,68" fill="none" stroke="#FFFFFF" stroke-width="32" stroke-linecap="round"/>
+      <path d="M-24,-40 C-24,-74 26,-74 26,-36 L14,68" fill="none" stroke="#DC2626" stroke-width="18" stroke-linecap="round"/>
+      <path d="M-24,-40 C-24,-74 26,-74 26,-36 L14,68" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-dasharray="14 14" stroke-linecap="butt"/>
+    </g>
+    <!-- Green Gift Left -->
+    <g transform="translate(102 346)">
+      <rect x="-40" y="-34" width="80" height="68" rx="10" fill="#15803D" stroke="#FFFFFF" stroke-width="10"/>
+      <rect x="-38" y="-32" width="76" height="64" rx="8" fill="#16A34A"/>
+      <rect x="-8" y="-32" width="16" height="64" fill="#DC2626"/>
+      <rect x="-38" y="-6" width="76" height="14" fill="#DC2626"/>
+      <ellipse cx="-14" cy="-38" rx="14" ry="8" fill="#DC2626"/>
+      <ellipse cx="14" cy="-38" rx="14" ry="8" fill="#DC2626"/>
+    </g>
+    <!-- Merry Christmas Sticker -->
+    <g transform="translate(285 362)">
+      <rect x="-86" y="-34" width="172" height="72" rx="34" fill="#FFFFFF" stroke="#F4F4F5" stroke-width="3"/>
+      <text x="0" y="-2" text-anchor="middle" font-family="'Caveat', cursive" font-size="38" font-weight="700" fill="#B91C1C">Merry</text>
+      <text x="0" y="28" text-anchor="middle" font-family="'Caveat', cursive" font-size="36" font-weight="700" fill="#B91C1C">Christmas</text>
+    </g>
+
+    <!-- Row 3: Gingerbread Men, Christmas Tree, Standing Reindeer -->
+    <g transform="translate(106 492)">
+      <circle cx="0" cy="-36" r="24" fill="#B46936" stroke="#FFFFFF" stroke-width="9"/>
+      <rect x="-24" y="-12" width="48" height="48" rx="16" fill="#B46936" stroke="#FFFFFF" stroke-width="9"/>
+      <circle cx="0" cy="-36" r="22" fill="#C67B43"/>
+      <rect x="-38" y="-8" width="76" height="16" rx="8" fill="#C67B43"/>
+      <rect x="-22" y="-12" width="44" height="48" rx="16" fill="#C67B43"/>
+      <rect x="-20" y="24" width="16" height="30" rx="8" fill="#C67B43"/>
+      <rect x="4" y="24" width="16" height="30" rx="8" fill="#C67B43"/>
+      <circle cx="-7" cy="-40" r="3" fill="#FFFFFF"/>
+      <circle cx="7" cy="-40" r="3" fill="#FFFFFF"/>
+      <path d="M-7,-30 Q0,-24 7,-30" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="0" cy="4" r="4" fill="#22C55E"/>
+      <circle cx="0" cy="18" r="4" fill="#EF4444"/>
+    </g>
+    <g transform="translate(228 492)">
+      <circle cx="0" cy="-36" r="24" fill="#B46936" stroke="#FFFFFF" stroke-width="9"/>
+      <rect x="-24" y="-12" width="48" height="48" rx="16" fill="#B46936" stroke="#FFFFFF" stroke-width="9"/>
+      <circle cx="0" cy="-36" r="22" fill="#C67B43"/>
+      <rect x="-38" y="-8" width="76" height="16" rx="8" fill="#C67B43"/>
+      <rect x="-22" y="-12" width="44" height="48" rx="16" fill="#C67B43"/>
+      <rect x="-20" y="24" width="16" height="30" rx="8" fill="#C67B43"/>
+      <rect x="4" y="24" width="16" height="30" rx="8" fill="#C67B43"/>
+      <circle cx="-7" cy="-40" r="3" fill="#FFFFFF"/>
+      <circle cx="7" cy="-40" r="3" fill="#FFFFFF"/>
+      <path d="M-7,-30 Q0,-24 7,-30" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="0" cy="4" r="4" fill="#EF4444"/>
+      <circle cx="0" cy="18" r="4" fill="#FACC15"/>
+    </g>
+    <!-- Christmas Tree -->
+    <g transform="translate(352 486)">
+      <polygon points="0,-66 48,38 -48,38" fill="#15803D" stroke="#FFFFFF" stroke-width="10" stroke-linejoin="round"/>
+      <rect x="-12" y="34" width="24" height="22" rx="4" fill="#78350F"/>
+      <polygon points="0,-62 34,-12 -34,-12" fill="#16A34A"/>
+      <polygon points="0,-32 42,14 -42,14" fill="#15803D"/>
+      <polygon points="0,-4 48,38 -48,38" fill="#166534"/>
+      <polygon points="0,-78 6,-64 20,-64 9,-55 13,-42 0,-50 -13,-42 -9,-55 -20,-64 -6,-64" fill="#FACC15"/>
+      <circle cx="-12" cy="-12" r="5" fill="#EF4444"/>
+      <circle cx="14" cy="4" r="5" fill="#FACC15"/>
+      <circle cx="-16" cy="22" r="5" fill="#38BDF8"/>
+      <circle cx="18" cy="26" r="5" fill="#EF4444"/>
+    </g>
+    <!-- Standing Reindeer -->
+    <g transform="translate(470 478)">
+      <ellipse cx="0" cy="20" rx="28" ry="20" fill="#B46936" stroke="#FFFFFF" stroke-width="9"/>
+      <circle cx="-12" cy="-16" r="20" fill="#C67B43" stroke="#FFFFFF" stroke-width="8"/>
+      <ellipse cx="0" cy="20" rx="26" ry="18" fill="#C67B43"/>
+      <rect x="-20" y="32" width="10" height="24" rx="5" fill="#92400E"/>
+      <rect x="8" y="32" width="10" height="24" rx="5" fill="#92400E"/>
+      <circle cx="-12" cy="-16" r="19" fill="#C67B43"/>
+      <path d="M-20,-32 L-28,-50 M-4,-32 L4,-50" stroke="#78350F" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="-22" cy="-14" r="5" fill="#DC2626"/>
+      <circle cx="-14" cy="-20" r="2.5" fill="#18181B"/>
+    </g>
+
+    <!-- Row 4: Reindeer Face, Holly Leaves, Ho Ho -->
+    <g transform="translate(116 632)">
+      <circle cx="0" cy="4" r="32" fill="#B46936" stroke="#FFFFFF" stroke-width="10"/>
+      <circle cx="0" cy="4" r="30" fill="#C67B43"/>
+      <path d="M-16,-22 L-26,-44 M16,-22 L26,-44" stroke="#78350F" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="-10" cy="-2" r="3.5" fill="#18181B"/>
+      <circle cx="10" cy="-2" r="3.5" fill="#18181B"/>
+      <circle cx="0" cy="12" r="9" fill="#DC2626"/>
+    </g>
+    <g transform="translate(248 638)">
+      <ellipse cx="-24" cy="0" rx="28" ry="16" transform="rotate(-24 -24 0)" fill="#15803D" stroke="#FFFFFF" stroke-width="8"/>
+      <ellipse cx="24" cy="0" rx="28" ry="16" transform="rotate(24 24 0)" fill="#16A34A" stroke="#FFFFFF" stroke-width="8"/>
+      <ellipse cx="-24" cy="0" rx="26" ry="14" transform="rotate(-24 -24 0)" fill="#15803D"/>
+      <ellipse cx="24" cy="0" rx="26" ry="14" transform="rotate(24 24 0)" fill="#16A34A"/>
+      <circle cx="0" cy="12" r="9" fill="#DC2626"/>
+      <circle cx="-10" cy="18" r="8" fill="#EF4444"/>
+      <circle cx="10" cy="18" r="8" fill="#B91C1C"/>
+    </g>
+    <g transform="translate(362 638)">
+      <ellipse cx="-24" cy="0" rx="26" ry="14" transform="rotate(-20 -24 0)" fill="#16A34A"/>
+      <ellipse cx="24" cy="0" rx="26" ry="14" transform="rotate(20 24 0)" fill="#15803D"/>
+      <circle cx="0" cy="12" r="9" fill="#DC2626"/>
+      <circle cx="-10" cy="18" r="8" fill="#EF4444"/>
+      <circle cx="10" cy="18" r="8" fill="#B91C1C"/>
+    </g>
+    <g transform="translate(474 624)">
+      <text x="0" y="-4" text-anchor="middle" font-family="'Fredoka', sans-serif" font-size="42" font-weight="700" fill="#DC2626" stroke="#FFFFFF" stroke-width="10" paint-order="stroke fill">Ho</text>
+      <text x="0" y="38" text-anchor="middle" font-family="'Fredoka', sans-serif" font-size="42" font-weight="700" fill="#DC2626" stroke="#FFFFFF" stroke-width="10" paint-order="stroke fill">Ho</text>
+    </g>
+  </g>
+</svg>`;
+}
+
+function pastelPrintablesWindowSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 720" width="560" height="720">
+  <defs>
+    <filter id="ps-sh" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect x="4" y="4" width="552" height="712" rx="22" fill="#FFFFFF" stroke="#E7E5E4" stroke-width="2"/>
+  <circle cx="30" cy="28" r="7" fill="#F87171"/>
+  <circle cx="52" cy="28" r="7" fill="#FBBF24"/>
+  <circle cx="74" cy="28" r="7" fill="#34D399"/>
+  <text x="280" y="33" text-anchor="middle" font-family="'Outfit', sans-serif" font-size="16" font-weight="600" fill="#57534E">Printable Stickers &amp; Coloring PDF/PNG</text>
+  <line x1="16" y1="48" x2="544" y2="48" stroke="#F5F5F4" stroke-width="2"/>
+
+  <g filter="url(#ps-sh)">
+    <!-- Pastel Rainbow -->
+    <g transform="translate(136 146)">
+      <path d="M-74,30 A74,74 0 0,1 74,30" fill="none" stroke="#FFFFFF" stroke-width="50" stroke-linecap="round"/>
+      <path d="M-64,30 A64,64 0 0,1 64,30" fill="none" stroke="#FCA5A5" stroke-width="18" stroke-linecap="round"/>
+      <path d="M-46,30 A46,46 0 0,1 46,30" fill="none" stroke="#FDE68A" stroke-width="18" stroke-linecap="round"/>
+      <path d="M-28,30 A28,28 0 0,1 28,30" fill="none" stroke="#99F6E4" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="-62" cy="36" r="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+      <circle cx="62" cy="36" r="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    </g>
+    <!-- Cute Bear Head -->
+    <g transform="translate(310 146)">
+      <circle cx="-36" cy="-34" r="18" fill="#D6A984" stroke="#FFFFFF" stroke-width="8"/>
+      <circle cx="36" cy="-34" r="18" fill="#D6A984" stroke="#FFFFFF" stroke-width="8"/>
+      <circle cx="0" cy="4" r="46" fill="#D6A984" stroke="#FFFFFF" stroke-width="10"/>
+      <circle cx="-36" cy="-34" r="16" fill="#D6A984"/>
+      <circle cx="36" cy="-34" r="16" fill="#D6A984"/>
+      <circle cx="0" cy="4" r="44" fill="#E2B996"/>
+      <ellipse cx="0" cy="18" rx="18" ry="14" fill="#FEF3C7"/>
+      <circle cx="-15" cy="-2" r="4" fill="#292524"/>
+      <circle cx="15" cy="-2" r="4" fill="#292524"/>
+      <ellipse cx="0" cy="12" rx="6" ry="4.5" fill="#44403C"/>
+      <circle cx="-24" cy="10" r="6" fill="#FDA4AF" opacity="0.65"/>
+      <circle cx="24" cy="10" r="6" fill="#FDA4AF" opacity="0.65"/>
+    </g>
+    <!-- Sun Flower -->
+    <g transform="translate(462 146)">
+      <circle cx="0" cy="0" r="46" fill="#FDE68A" stroke="#FFFFFF" stroke-width="10"/>
+      <circle cx="0" cy="-32" r="16" fill="#FBBF24"/>
+      <circle cx="30" cy="-10" r="16" fill="#FBBF24"/>
+      <circle cx="19" cy="26" r="16" fill="#FBBF24"/>
+      <circle cx="-19" cy="26" r="16" fill="#FBBF24"/>
+      <circle cx="-30" cy="-10" r="16" fill="#FBBF24"/>
+      <circle cx="0" cy="0" r="22" fill="#FB923C"/>
+      <circle cx="-6" cy="-3" r="2.8" fill="#431407"/>
+      <circle cx="6" cy="-3" r="2.8" fill="#431407"/>
+      <path d="M-5,6 Q0,11 5,6" fill="none" stroke="#431407" stroke-width="2.2" stroke-linecap="round"/>
+    </g>
+
+    <!-- Middle Row: Botanical Leaf, Cozy Mug, Cute Butterfly -->
+    <g transform="translate(116 336)">
+      <ellipse cx="0" cy="0" rx="44" ry="56" fill="#A7F3D0" stroke="#FFFFFF" stroke-width="10"/>
+      <path d="M0,-44 C36,-20 36,30 0,48 C-36,30 -36,-20 0,-44 Z" fill="#34D399"/>
+      <path d="M0,-40 L0,48 M0,-14 L18,-26 M0,6 L-18,-6 M0,24 L18,12" stroke="#ECFDF5" stroke-width="3.5" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(282 342)">
+      <rect x="-88" y="-38" width="176" height="76" rx="36" fill="#FFF7ED" stroke="#FED7AA" stroke-width="3"/>
+      <text x="0" y="-2" text-anchor="middle" font-family="'Fredoka', sans-serif" font-size="28" font-weight="700" fill="#B45309">Create &amp;</text>
+      <text x="0" y="28" text-anchor="middle" font-family="'Fredoka', sans-serif" font-size="28" font-weight="700" fill="#0F766E">Color Pack</text>
+    </g>
+    <g transform="translate(454 336)">
+      <circle cx="-20" cy="-14" r="26" fill="#DDD6FE" stroke="#FFFFFF" stroke-width="8"/>
+      <circle cx="20" cy="-14" r="26" fill="#DDD6FE" stroke="#FFFFFF" stroke-width="8"/>
+      <circle cx="-16" cy="18" r="20" fill="#C4B5FD" stroke="#FFFFFF" stroke-width="8"/>
+      <circle cx="16" cy="18" r="20" fill="#C4B5FD" stroke="#FFFFFF" stroke-width="8"/>
+      <circle cx="-20" cy="-14" r="24" fill="#C4B5FD"/>
+      <circle cx="20" cy="-14" r="24" fill="#C4B5FD"/>
+      <circle cx="-16" cy="18" r="18" fill="#A78BFA"/>
+      <circle cx="16" cy="18" r="18" fill="#A78BFA"/>
+      <rect x="-5" y="-24" width="10" height="54" rx="5" fill="#4C1D95"/>
+    </g>
+
+    <!-- Bottom Row: B&W Coloring Line Art Mini Cards -->
+    <g transform="translate(154 552)">
+      <rect x="-102" y="-108" width="204" height="216" rx="16" fill="#FFFFFF" stroke="#D6D3D1" stroke-width="3"/>
+      <g stroke="#18181B" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="0" cy="-14" r="44"/>
+        <circle cx="0" cy="-14" r="22"/>
+        <path d="M0,-58 C18,-36 18,-36 0,-14 C-18,-36 -18,-36 0,-58 Z"/>
+        <path d="M44,-14 C22,4 22,4 0,-14 C22,-32 22,-32 44,-14 Z"/>
+        <path d="M0,30 C-18,8 -18,8 0,-14 C18,8 18,8 0,30 Z"/>
+        <path d="M-44,-14 C-22,-32 -22,-32 0,-14 C-22,4 -22,4 -44,-14 Z"/>
+        <line x1="-64" y1="64" x2="64" y2="64"/>
+        <line x1="-42" y1="80" x2="42" y2="80"/>
+      </g>
+    </g>
+    <g transform="translate(406 552)">
+      <rect x="-102" y="-108" width="204" height="216" rx="16" fill="#FFFFFF" stroke="#D6D3D1" stroke-width="3"/>
+      <g stroke="#18181B" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M-58,40 L-58,-12 L0,-56 L58,-12 L58,40 Z"/>
+        <rect x="-16" y="4" width="32" height="36" rx="14"/>
+        <circle cx="0" cy="-24" r="10"/>
+        <path d="M-76,40 L76,40"/>
+        <circle cx="46" cy="-54" r="14"/>
+        <path d="M-64,-44 Q-44,-60 -26,-44"/>
+      </g>
+    </g>
+  </g>
+</svg>`;
+}
+
 export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
+  // --- 2 Cozy Knit Tablet Digital Stickers & Printables Showcase Designs ---
+  {
+    id: "mockup-cozy-tablet-christmas",
+    label: "Christmas Digital Stickers Cozy Tablet",
+    badge: "Cozy Tablet",
+    category: "mockups",
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cozy-tablet-christmas"],
+    config: {
+      aspect: "2:3",
+      layout: "book-mockup",
+      backdrop: "mockup-cozy-tablet-christmas",
+      hideHeroBanner: false,
+      overlayFlatLayPages: true,
+      plaqueStyle: "luxe-deco",
+      plaqueBgColor: "#FDFBF5",
+      bannerBoundColor: "#C8A96A",
+      bannerBoundWidth: 4,
+      bannerBoundDash: "solid",
+      bannerBoundRadius: 18,
+      bannerBoundBgOpacity: 96,
+      bannerBoundShadow: true,
+      bannerBoundScaleX: 88,
+      bannerBoundScaleY: 76,
+      bannerOffsetY: -6,
+      titleFontScale: 92,
+      accentBadge: "",
+      titleLine1: "Christmas",
+      titleLine2Ribbon: "Digital Stickers",
+      titleLine3: "",
+      subtitleText: "Instant & Printable PDF/PNG",
+      footerBrandText: "",
+      primaryColor: "#7F1D1D",
+      secondaryColor: "#2D5A3D",
+      ribbonColor: "#7F1D1D",
+      title1Color: "#7F1D1D",
+      title1Style: "clean",
+      title2TextColor: "#7F1D1D",
+      title2Style: "clean",
+      title3Color: "#2D5A3D",
+      title3Style: "clean",
+      subtitleStyle: "pill",
+      subtitleBgColor: "#2D5A3D",
+      subtitleTextColor: "#FFFFFF",
+      footerBgColor: "#7F1D1D",
+      fontFamily: "'Playfair Display', 'Padauk', serif",
+      decorTheme: "christmas",
+      showCardCaptions: false,
+      cards: [
+        {
+          id: "xmas-tablet-sheet-1",
+          label: "Christmas Stickers Window",
+          src: svgToDataUrl(christmasStickersWindowSvg()),
+          paper: "white",
+          frameStyle: "clean",
+        },
+        ART_CARD_PACKS[1].cards[0],
+        ART_CARD_PACKS[1].cards[1],
+        ART_CARD_PACKS[1].cards[2],
+      ],
+      customTextLayers: [],
+    },
+  },
+  {
+    id: "mockup-cozy-tablet-pastel",
+    label: "Cozy Knit Tablet Printable & Coloring",
+    badge: "Tablet 2:3",
+    category: "mockups",
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cozy-tablet-pastel"],
+    config: {
+      aspect: "2:3",
+      layout: "book-mockup",
+      backdrop: "mockup-cozy-tablet-pastel",
+      hideHeroBanner: false,
+      overlayFlatLayPages: true,
+      plaqueStyle: "luxe-deco",
+      plaqueBgColor: "#FFFDF8",
+      bannerBoundColor: "#C5A267",
+      bannerBoundWidth: 4,
+      bannerBoundDash: "solid",
+      bannerBoundRadius: 18,
+      bannerBoundBgOpacity: 96,
+      bannerBoundShadow: true,
+      bannerBoundScaleX: 88,
+      bannerBoundScaleY: 76,
+      bannerOffsetY: -6,
+      titleFontScale: 90,
+      accentBadge: "",
+      titleLine1: "Printable Pages",
+      titleLine2Ribbon: "& Digital Stickers",
+      titleLine3: "",
+      subtitleText: "Instant & Printable PDF/PNG",
+      footerBrandText: "",
+      primaryColor: "#5C3D2E",
+      secondaryColor: "#3D6B5B",
+      ribbonColor: "#5C3D2E",
+      title1Color: "#5C3D2E",
+      title1Style: "clean",
+      title2TextColor: "#5C3D2E",
+      title2Style: "clean",
+      title3Color: "#3D6B5B",
+      title3Style: "clean",
+      subtitleStyle: "pill",
+      subtitleBgColor: "#3D6B5B",
+      subtitleTextColor: "#FFFFFF",
+      footerBgColor: "#5C3D2E",
+      fontFamily: "'Playfair Display', 'Padauk', serif",
+      decorTheme: "botanical",
+      showCardCaptions: false,
+      cards: [
+        {
+          id: "pastel-tablet-sheet-1",
+          label: "Printable Stickers & Coloring Window",
+          src: svgToDataUrl(pastelPrintablesWindowSvg()),
+          paper: "white",
+          frameStyle: "clean",
+        },
+        ART_CARD_PACKS[2].cards[0],
+        ART_CARD_PACKS[2].cards[1],
+        ART_CARD_PACKS[2].cards[2],
+      ],
+      customTextLayers: [],
+    },
+  },
   // --- 9 New Commercial 2:3 Coloring Book & Learning Activity Showcase Designs ---
   {
     id: "mockup-giftbox-kids",
     label: "My First Coloring Book Gift Box Unboxing",
     badge: "Gift Promo",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-giftbox-kids"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-giftbox-kids"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1134,7 +1553,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Spiral Flip Coloring Book & Vocabulary Pad",
     badge: "Flip Book",
     category: "learning",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-spiral-flip"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-spiral-flip"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1219,7 +1638,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Learn Through Coloring · Plush Friends Spread",
     badge: "Color by #",
     category: "learning",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-plush-numbers"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-plush-numbers"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1275,7 +1694,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Standing Cover + Take a Look Inside Spread",
     badge: "Look Inside",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-look-inside"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-look-inside"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1416,7 +1835,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Trace & Color Activity · Toddler Desk Lifestyle",
     badge: "Tracing 2–4",
     category: "learning",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-toddler-trace"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-toddler-trace"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1529,7 +1948,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Little Explorers Open Animal Fun Facts Spread",
     badge: "Fun Facts",
     category: "learning",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-animal-facts"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-animal-facts"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1614,7 +2033,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Cream Studio Infographic Poster + 4 Sheets",
     badge: "Infographic",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-cream-infographic"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cream-infographic"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1839,7 +2258,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Alphabet Fun! Beginning Sounds Overhead",
     badge: "ABC Phonics",
     category: "learning",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-alphabet-hands"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-alphabet-hands"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -1980,7 +2399,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "8-Book Cute Animal Collage + Bold Sticker Title",
     badge: "Viral Pin",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-collage-secret"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-collage-secret"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -2152,7 +2571,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Standing 3D Animal Coloring Book",
     badge: "Book Mockup",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-standing-kids"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-standing-kids"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -2208,7 +2627,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Pastel Open Workbook & Bear Cover",
     badge: "Workbook 2:3",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-workbook-pastel"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-workbook-pastel"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -2264,7 +2683,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Cozy Oak Printable Bundle + Badges",
     badge: "Bundle 2:3",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-cozy-bundle"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cozy-bundle"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -2405,7 +2824,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Dual Front & Back ABC Book Covers",
     badge: "Front & Back",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-front-back"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-front-back"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -2461,7 +2880,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Jungle Cute Animals Desk Collage",
     badge: "Collage 2:3",
     category: "mockups",
-    thumbnailSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-jungle-collage"],
+    thumbnailSrc: BOOK_MOCKUP_THUMB_URLS["mockup-jungle-collage"],
     config: {
       aspect: "2:3",
       layout: "book-mockup",
@@ -2518,7 +2937,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Cozy Oak & Latte Golden Hour Flat-Lay",
     badge: "Flat-Lay 2:3",
     category: "flatlay",
-    thumbnailSrc: FLAT_LAY_PHOTO_URLS["flatlay-oak-latte"],
+    thumbnailSrc: FLAT_LAY_THUMB_URLS["flatlay-oak-latte"],
     config: {
       aspect: "2:3",
       layout: "flat-lay-book",
@@ -2566,7 +2985,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Summer Picnic Blanket & Wildflowers",
     badge: "Flat-Lay 2:3",
     category: "flatlay",
-    thumbnailSrc: FLAT_LAY_PHOTO_URLS["flatlay-picnic-grass"],
+    thumbnailSrc: FLAT_LAY_THUMB_URLS["flatlay-picnic-grass"],
     config: {
       aspect: "2:3",
       layout: "flat-lay-book",
@@ -2614,7 +3033,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Minimalist Linen & Window Blinds",
     badge: "Flat-Lay 2:3",
     category: "flatlay",
-    thumbnailSrc: FLAT_LAY_PHOTO_URLS["flatlay-linen-blinds"],
+    thumbnailSrc: FLAT_LAY_THUMB_URLS["flatlay-linen-blinds"],
     config: {
       aspect: "2:3",
       layout: "flat-lay-book",
@@ -2662,7 +3081,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Moody Dark Walnut & Botanical Tea",
     badge: "Flat-Lay 2:3",
     category: "flatlay",
-    thumbnailSrc: FLAT_LAY_PHOTO_URLS["flatlay-walnut-botanical"],
+    thumbnailSrc: FLAT_LAY_THUMB_URLS["flatlay-walnut-botanical"],
     config: {
       aspect: "2:3",
       layout: "flat-lay-book",
@@ -2710,7 +3129,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
     label: "Pastel Cream Desk & Alcohol Markers",
     badge: "Flat-Lay 2:3",
     category: "flatlay",
-    thumbnailSrc: FLAT_LAY_PHOTO_URLS["flatlay-pastel-markers"],
+    thumbnailSrc: FLAT_LAY_THUMB_URLS["flatlay-pastel-markers"],
     config: {
       aspect: "2:3",
       layout: "flat-lay-book",
@@ -2798,7 +3217,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
       titleLine2Ribbon: "Coloring Pages",
       titleLine3: "for Kids",
       subtitleText: "Print, color, and celebrate!",
-      footerBrandText: "LuminaStudio.com",
+      footerBrandText: "GBTK STUDIO",
       primaryColor: "#DC2626",
       secondaryColor: "#15803D",
       ribbonColor: "#15803D",
@@ -2826,7 +3245,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
       titleLine2Ribbon: "Animal Coloring",
       titleLine3: "Pages for Kids",
       subtitleText: "Bold & Easy Printables",
-      footerBrandText: "LuminaStudio.com",
+      footerBrandText: "GBTK STUDIO",
       primaryColor: "#0EA5E9",
       secondaryColor: "#15803D",
       ribbonColor: "#0284C7",
@@ -2857,7 +3276,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
       titleLine2Ribbon: "Space & Rockets",
       titleLine3: "Coloring Adventure",
       subtitleText: "Planets, Robots & UFOs",
-      footerBrandText: "Lumina Space Editions",
+      footerBrandText: "GBTK Space Editions",
       primaryColor: "#38BDF8",
       secondaryColor: "#FACC15",
       ribbonColor: "#7C3AED",
@@ -2891,7 +3310,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
       titleLine2Ribbon: "Pastel Art Pack",
       titleLine3: "Stickers & Printables",
       subtitleText: "Instant Cute Collection",
-      footerBrandText: "Lumina Kids Club",
+      footerBrandText: "GBTK Kids Club",
       primaryColor: "#EC4899",
       secondaryColor: "#7C3AED",
       ribbonColor: "#F43F5E",
@@ -2958,7 +3377,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
       titleLine2Ribbon: "မြန်မာစာနှင့် ပုံဆွဲစာအုပ်",
       titleLine3: "ကလေးများအတွက် လေ့ကျင့်ခန်း",
       subtitleText: "ရောင်စုံပုံလေးများဖြင့် သင်ယူမယ်",
-      footerBrandText: "Lumina Kids Myanmar",
+      footerBrandText: "GBTK Kids Myanmar",
       primaryColor: "#2563EB",
       secondaryColor: "#E11D48",
       ribbonColor: "#2563EB",
@@ -3069,7 +3488,7 @@ export const SHOWCASE_DESIGN_PRESETS: ShowcaseDesignPreset[] = [
       titleLine2Ribbon: "Winter Wonderland",
       titleLine3: "Coloring & Craft Kit",
       subtitleText: "Snowy Day Printable Fun",
-      footerBrandText: "Lumina Winter Pack",
+      footerBrandText: "GBTK Winter Pack",
       primaryColor: "#0369A1",
       secondaryColor: "#0F766E",
       ribbonColor: "#0284C7",

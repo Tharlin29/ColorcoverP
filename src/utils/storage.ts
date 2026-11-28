@@ -1,3 +1,7 @@
+import cardPhotoCreateWebp from "../assets/images/webp/card_photo_create_1794574941126.webp";
+import cardBookBuilderWebp from "../assets/images/webp/card_book_builder_1794628315325.webp";
+import cardTextStudioWebp from "../assets/images/webp/card_text_studio_1794574941080.webp";
+import sampleBaganDawnWebp from "../assets/images/webp/sample_bagan_dawn_1794574942633.webp";
 import { PhotoItem } from "../types/studio";
 
 const DB_NAME = "lumina-studio-db";
@@ -6,30 +10,41 @@ const PHOTO_STORE = "photos";
 const SEED_FLAG = "lumina_seeded_v1";
 
 export const STUDIO_ASSETS = {
-  photoCreate: "/src/assets/images/card_photo_create_1794574941126.jpg",
-  bookBuilder: "/src/assets/images/card_book_builder_1794628315325.jpg",
-  textStudio: "/src/assets/images/card_text_studio_1794574941080.jpg",
-  baganDawn: "/src/assets/images/sample_bagan_dawn_1794574942633.jpg",
+  photoCreate: cardPhotoCreateWebp,
+  bookBuilder: cardBookBuilderWebp,
+  textStudio: cardTextStudioWebp,
+  baganDawn: sampleBaganDawnWebp,
 };
 
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(PHOTO_STORE)) {
-        db.createObjectStore(PHOTO_STORE, { keyPath: "id" });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(PHOTO_STORE)) {
+          db.createObjectStore(PHOTO_STORE, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => {
+        dbPromise = null;
+        reject(req.error);
+      };
+    } catch (err) {
+      dbPromise = null;
+      reject(err);
+    }
   });
+  return dbPromise;
 }
 
-async function seedDefaultPhotosIfNeeded(): Promise<void> {
-  if (localStorage.getItem(SEED_FLAG) === "1") return;
+function buildDefaultSeeds(): PhotoItem[] {
   const now = Date.now();
-  const seeds: PhotoItem[] = [
+  return [
     {
       id: "seed-bagan-dawn",
       title: "Bagan Golden Dawn",
@@ -57,7 +72,15 @@ async function seedDefaultPhotosIfNeeded(): Promise<void> {
       updatedAt: now - 900000,
     },
   ];
+}
 
+async function seedDefaultPhotosIfNeeded(): Promise<void> {
+  try {
+    if (localStorage.getItem(SEED_FLAG) === "1") return;
+  } catch {
+    return;
+  }
+  const seeds = buildDefaultSeeds();
   const db = await openDB();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(PHOTO_STORE, "readwrite");
@@ -68,43 +91,121 @@ async function seedDefaultPhotosIfNeeded(): Promise<void> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
-  localStorage.setItem(SEED_FLAG, "1");
+  try {
+    localStorage.setItem(SEED_FLAG, "1");
+  } catch {
+    // ignore storage quota / private mode
+  }
 }
 
 export async function getAllPhotos(): Promise<PhotoItem[]> {
-  await seedDefaultPhotosIfNeeded();
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(PHOTO_STORE, "readonly");
-    const store = tx.objectStore(PHOTO_STORE);
-    const req = store.getAll();
-    req.onsuccess = () => {
-      const items = (req.result as PhotoItem[]) || [];
-      items.sort((a, b) => b.updatedAt - a.updatedAt);
-      resolve(items);
-    };
-    req.onerror = () => reject(req.error);
-  });
+  try {
+    await seedDefaultPhotosIfNeeded();
+    const db = await openDB();
+    const items = await new Promise<PhotoItem[]>((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE, "readonly");
+      const store = tx.objectStore(PHOTO_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const list = (req.result as PhotoItem[]) || [];
+        list.sort((a, b) => b.updatedAt - a.updatedAt);
+        resolve(list);
+      };
+      req.onerror = () => reject(req.error);
+    });
+
+    // Repair any legacy unbundled /src/assets/images/ seed URLs stored in older sessions
+    let needsRepair = false;
+    const repaired = items.map((item) => {
+      if (item.id === "seed-bagan-dawn" && item.dataUrl.startsWith("/src/assets/")) {
+        needsRepair = true;
+        return { ...item, dataUrl: STUDIO_ASSETS.baganDawn };
+      }
+      if (item.id === "seed-travertine-arches" && item.dataUrl.startsWith("/src/assets/")) {
+        needsRepair = true;
+        return { ...item, dataUrl: STUDIO_ASSETS.textStudio };
+      }
+      return item;
+    });
+
+    if (needsRepair) {
+      const tx = db.transaction(PHOTO_STORE, "readwrite");
+      const store = tx.objectStore(PHOTO_STORE);
+      for (const item of repaired) {
+        if (item.id === "seed-bagan-dawn" || item.id === "seed-travertine-arches") {
+          store.put(item);
+        }
+      }
+    }
+
+    return repaired;
+  } catch {
+    return buildDefaultSeeds();
+  }
 }
 
 export async function savePhoto(photo: PhotoItem): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(PHOTO_STORE, "readwrite");
-    tx.objectStore(PHOTO_STORE).put(photo);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE, "readwrite");
+      tx.objectStore(PHOTO_STORE).put(photo);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Gracefully degrade if IndexedDB is unavailable in restricted contexts
+  }
+}
+
+export async function savePhotos(items: PhotoItem[]): Promise<void> {
+  if (items.length === 0) return;
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE, "readwrite");
+      const store = tx.objectStore(PHOTO_STORE);
+      for (const item of items) {
+        store.put(item);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Gracefully degrade if IndexedDB is unavailable
+  }
 }
 
 export async function deletePhoto(id: string): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(PHOTO_STORE, "readwrite");
-    tx.objectStore(PHOTO_STORE).delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE, "readwrite");
+      tx.objectStore(PHOTO_STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Gracefully degrade if IndexedDB is unavailable
+  }
+}
+
+export async function deletePhotos(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE, "readwrite");
+      const store = tx.objectStore(PHOTO_STORE);
+      for (const id of ids) {
+        store.delete(id);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Gracefully degrade if IndexedDB is unavailable
+  }
 }
 
 export function readFileAsDataUrl(file: File): Promise<{

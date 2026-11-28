@@ -7,6 +7,7 @@ import {
   Eye,
   FileArchive,
   FileText,
+  FileUp,
   Image as ImageIcon,
   Loader2,
   Plus,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BookPrintPreviewModal } from "../components/BookPrintPreviewModal";
+import { PdfUploadEditorPanel } from "../components/PdfUploadEditorPanel";
 import { BookPageSize, ColoringColorMode, PhotoItem, PrintDpi } from "../types/studio";
 import { exportBookAsPdf, exportBookAsZip } from "../utils/exportTools";
 import {
@@ -63,6 +65,7 @@ export function BookBuilderPage({
     return initial;
   });
 
+  const [builderTab, setBuilderTab] = useState<"photo-book" | "pdf-editor">("photo-book");
   const [filterMode, setFilterMode] = useState<"all" | "coloring">("all");
   const [pageSize, setPageSize] = useState<BookPageSize>("us-letter");
   const [bookTitle, setBookTitle] = useState("My Coloring Book");
@@ -310,10 +313,10 @@ export function BookBuilderPage({
             <span>Back to Main Grid</span>
           </button>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950">
-            02. Coloring Book Builder (8–48 Pages)
+            02. Coloring Book Builder &amp; PDF Editor
           </h1>
           <p className="text-sm text-zinc-600">
-            Create လုပ်ထားသော ပုံ ၈ ပုံမှ ၄၈ ပုံအထိ စိတ်ကြိုက်ရွေးချယ်ပြီး Original Resolution အပြည့်အဝဖြင့် PDF သို့မဟုတ် ZIP ထုတ်ယူပါ။
+            Photo Hall ပုံများဖြင့် PDF/ZIP စာအုပ်ထုတ်ယူခြင်းအပြင် PDF ဖိုင် Upload တင်၍ စာမျက်နှာအသစ်ထည့်ခြင်း၊ ဖျက်ခြင်းနှင့် PDF ပြန်ထုတ်ခြင်းတို့ကိုပါ ပြုလုပ်နိုင်ပါသည်။
           </p>
         </div>
 
@@ -326,27 +329,79 @@ export function BookBuilderPage({
             onChange={handleImportPages}
             className="hidden"
           />
-          <button
-            type="button"
-            disabled={selectedPhotos.length === 0 && !includeCover}
-            onClick={() => setPreviewOpen(true)}
-            className="min-h-[42px] inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-45 cursor-pointer whitespace-nowrap"
-          >
-            <Eye className="w-4 h-4" />
-            <span>Preview Print & PDF ({selectedPhotos.length + (includeCover ? 1 : 0)})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="min-h-[42px] inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-zinc-900 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 cursor-pointer whitespace-nowrap"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Import Extra Pages</span>
-          </button>
+          {builderTab === "photo-book" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setBuilderTab("pdf-editor")}
+                className="min-h-[42px] inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 cursor-pointer whitespace-nowrap"
+              >
+                <FileUp className="w-4 h-4" />
+                <span>Upload &amp; Edit PDF</span>
+              </button>
+              <button
+                type="button"
+                disabled={selectedPhotos.length === 0 && !includeCover}
+                onClick={() => setPreviewOpen(true)}
+                className="min-h-[42px] inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Preview Print & PDF ({selectedPhotos.length + (includeCover ? 1 : 0)})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="min-h-[42px] inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-zinc-900 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 cursor-pointer whitespace-nowrap"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Import Extra Pages</span>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setBuilderTab("photo-book")}
+              className="min-h-[42px] inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-zinc-900 bg-white border border-zinc-300 rounded-lg hover:border-zinc-500 cursor-pointer whitespace-nowrap"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Back to Photo Hall Builder</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Main Split */}
+      {/* Mode Switcher Tabs */}
+      <div className="inline-flex flex-wrap items-center gap-1.5 p-1.5 bg-zinc-200/70 rounded-xl">
+        <button
+          type="button"
+          onClick={() => setBuilderTab("photo-book")}
+          className={`min-h-[40px] inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+            builderTab === "photo-book"
+              ? "bg-white text-zinc-950 shadow-sm"
+              : "text-zinc-600 hover:text-zinc-950"
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Photo Hall → Book PDF (8–48 Pages)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBuilderTab("pdf-editor")}
+          className={`min-h-[40px] inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+            builderTab === "pdf-editor"
+              ? "bg-white text-zinc-950 shadow-sm"
+              : "text-zinc-600 hover:text-zinc-950"
+          }`}
+        >
+          <FileUp className="w-4 h-4" />
+          <span>PDF Upload &amp; Edit (Add / Delete Pages)</span>
+        </button>
+      </div>
+
+      {builderTab === "pdf-editor" ? (
+        <PdfUploadEditorPanel photos={photos} onSaveNewPhoto={onSaveNewPhoto} />
+      ) : (
+      /* Main Split */
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Photo Hall Selection Grid */}
         <div className="lg:col-span-7 bg-white border border-zinc-200 rounded-2xl p-5 space-y-5">
@@ -873,6 +928,7 @@ export function BookBuilderPage({
           </div>
         </div>
       </div>
+      )}
 
       <BookPrintPreviewModal
         open={previewOpen}

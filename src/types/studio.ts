@@ -1,4 +1,4 @@
-export type PageId = "design" | "erase" | "create" | "ai-edit" | "book" | "text";
+export type PageId = "design" | "flyer" | "ai-edit" | "book" | "text";
 
 export type CreationMode = "coloring-book" | "standard";
 export type BookPageSize = "us-letter" | "a4";
@@ -296,6 +296,8 @@ export type ShowcaseBackdropId =
   | "mockup-cream-infographic"
   | "mockup-alphabet-hands"
   | "mockup-collage-secret"
+  | "mockup-cozy-tablet-christmas"
+  | "mockup-cozy-tablet-pastel"
   | "custom";
 
 export type ShowcasePlaqueStyle =
@@ -336,6 +338,8 @@ export type CardOverlayTextStyle =
   | "banner-ribbon"
   | "clean";
 
+export type ShowcaseCardFrameStyle = "paper" | "clean" | "polaroid";
+
 export interface ShowcaseCardSlot {
   id: string;
   label: string;
@@ -350,6 +354,15 @@ export interface ShowcaseCardSlot {
   overlayX?: number; // 0..100 horizontal % inside card (default 50)
   overlayY?: number; // 0..100 vertical % inside card
   overlayFontSize?: number; // percentage scale 60..180 (default 100)
+  /** Optional manual free-positioning & orientation overrides */
+  x?: number; // 0..100 horizontal % of canvas width
+  y?: number; // 0..100 vertical % of canvas height
+  widthPct?: number; // 10..90 % of canvas width (primarily for custom added cards)
+  aspectRatio?: number; // width / height ratio of image
+  rotation?: number; // -180..180 deg (0 = straight/upright, +/- = tilted)
+  scale?: number; // 0.35..2.2 size multiplier for layout slot cards
+  frameStyle?: ShowcaseCardFrameStyle; // default "paper"
+  aboveBanner?: boolean; // for custom added cards: draw above hero banner (default true)
 }
 
 export interface ShowcaseDesignConfig {
@@ -409,5 +422,6 @@ export interface ShowcaseDesignConfig {
   decorTheme: "christmas" | "hearts" | "stars" | "botanical" | "sparkle";
   showCardCaptions: boolean;
   cards: ShowcaseCardSlot[];
+  customCards?: ShowcaseCardSlot[];
   customTextLayers?: TextLayer[];
 }

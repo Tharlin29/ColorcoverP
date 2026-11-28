@@ -1,22 +1,47 @@
-import flatlayOakLatteImg from "../assets/images/flatlay_oak_latte_1795344823169.jpg";
-import flatlayPicnicGrassImg from "../assets/images/flatlay_picnic_grass_1795344827197.jpg";
-import flatlayLinenBlindsImg from "../assets/images/flatlay_linen_blinds_1795344827032.jpg";
-import flatlayWalnutBotanicalImg from "../assets/images/flatlay_walnut_botanical_1795344826888.jpg";
-import flatlayPastelMarkersImg from "../assets/images/flatlay_pastel_markers_1795344827018.jpg";
-import mockupStandingKidsImg from "../assets/images/mockup_standing_kids_1795383912435.jpg";
-import mockupWorkbookPastelImg from "../assets/images/mockup_workbook_pastel_1795383912221.jpg";
-import mockupCozyBundleImg from "../assets/images/mockup_cozy_bundle_1795383911427.jpg";
-import mockupFrontBackImg from "../assets/images/mockup_front_back_1795383912353.jpg";
-import mockupJungleCollageImg from "../assets/images/mockup_jungle_collage_1795383912814.jpg";
-import mockupGiftboxKidsImg from "../assets/images/mockup_giftbox_kids_1795441155034.jpg";
-import mockupSpiralFlipImg from "../assets/images/mockup_spiral_flip_1795441155445.jpg";
-import mockupPlushNumbersImg from "../assets/images/mockup_plush_numbers_1795441155204.jpg";
-import mockupLookInsideImg from "../assets/images/mockup_look_inside_1795441153215.jpg";
-import mockupToddlerTraceImg from "../assets/images/mockup_toddler_trace_1795441155967.jpg";
-import mockupAnimalFactsImg from "../assets/images/mockup_animal_facts_1795441154753.jpg";
-import mockupCreamInfographicImg from "../assets/images/mockup_cream_infographic_1795441163107.jpg";
-import mockupAlphabetHandsImg from "../assets/images/mockup_alphabet_hands_1795441155863.jpg";
-import mockupCollageSecretImg from "../assets/images/mockup_collage_secret_1795441155348.jpg";
+import flatlayOakLatteImg from "../assets/images/webp/flatlay_oak_latte_1795344823169.webp";
+import flatlayPicnicGrassImg from "../assets/images/webp/flatlay_picnic_grass_1795344827197.webp";
+import flatlayLinenBlindsImg from "../assets/images/webp/flatlay_linen_blinds_1795344827032.webp";
+import flatlayWalnutBotanicalImg from "../assets/images/webp/flatlay_walnut_botanical_1795344826888.webp";
+import flatlayPastelMarkersImg from "../assets/images/webp/flatlay_pastel_markers_1795344827018.webp";
+import mockupStandingKidsImg from "../assets/images/webp/mockup_standing_kids_1795383912435.webp";
+import mockupWorkbookPastelImg from "../assets/images/webp/mockup_workbook_pastel_1795383912221.webp";
+import mockupCozyBundleImg from "../assets/images/webp/mockup_cozy_bundle_1795383911427.webp";
+import mockupFrontBackImg from "../assets/images/webp/mockup_front_back_1795383912353.webp";
+import mockupJungleCollageImg from "../assets/images/webp/mockup_jungle_collage_1795383912814.webp";
+import mockupGiftboxKidsImg from "../assets/images/webp/mockup_giftbox_kids_1795441155034.webp";
+import mockupSpiralFlipImg from "../assets/images/webp/mockup_spiral_flip_1795441155445.webp";
+import mockupPlushNumbersImg from "../assets/images/webp/mockup_plush_numbers_1795441155204.webp";
+import mockupLookInsideImg from "../assets/images/webp/mockup_look_inside_1795441153215.webp";
+import mockupToddlerTraceImg from "../assets/images/webp/mockup_toddler_trace_1795441155967.webp";
+import mockupAnimalFactsImg from "../assets/images/webp/mockup_animal_facts_1795441154753.webp";
+import mockupCreamInfographicImg from "../assets/images/webp/mockup_cream_infographic_1795441163107.webp";
+import mockupAlphabetHandsImg from "../assets/images/webp/mockup_alphabet_hands_1795441155863.webp";
+import mockupCollageSecretImg from "../assets/images/webp/mockup_collage_secret_1795441155348.webp";
+import mockupCozyTabletChristmasImg from "../assets/images/webp/mockup_cozy_tablet_christmas_1795603321079.webp";
+import mockupCozyTabletPastelImg from "../assets/images/webp/mockup_cozy_tablet_pastel_1795603320535.webp";
+
+import flatlayOakLatteThumb from "../assets/images/thumbs/flatlay_oak_latte_1795344823169.webp";
+import flatlayPicnicGrassThumb from "../assets/images/thumbs/flatlay_picnic_grass_1795344827197.webp";
+import flatlayLinenBlindsThumb from "../assets/images/thumbs/flatlay_linen_blinds_1795344827032.webp";
+import flatlayWalnutBotanicalThumb from "../assets/images/thumbs/flatlay_walnut_botanical_1795344826888.webp";
+import flatlayPastelMarkersThumb from "../assets/images/thumbs/flatlay_pastel_markers_1795344827018.webp";
+import mockupStandingKidsThumb from "../assets/images/thumbs/mockup_standing_kids_1795383912435.webp";
+import mockupWorkbookPastelThumb from "../assets/images/thumbs/mockup_workbook_pastel_1795383912221.webp";
+import mockupCozyBundleThumb from "../assets/images/thumbs/mockup_cozy_bundle_1795383911427.webp";
+import mockupFrontBackThumb from "../assets/images/thumbs/mockup_front_back_1795383912353.webp";
+import mockupJungleCollageThumb from "../assets/images/thumbs/mockup_jungle_collage_1795383912814.webp";
+import mockupGiftboxKidsThumb from "../assets/images/thumbs/mockup_giftbox_kids_1795441155034.webp";
+import mockupSpiralFlipThumb from "../assets/images/thumbs/mockup_spiral_flip_1795441155445.webp";
+import mockupPlushNumbersThumb from "../assets/images/thumbs/mockup_plush_numbers_1795441155204.webp";
+import mockupLookInsideThumb from "../assets/images/thumbs/mockup_look_inside_1795441153215.webp";
+import mockupToddlerTraceThumb from "../assets/images/thumbs/mockup_toddler_trace_1795441155967.webp";
+import mockupAnimalFactsThumb from "../assets/images/thumbs/mockup_animal_facts_1795441154753.webp";
+import mockupCreamInfographicThumb from "../assets/images/thumbs/mockup_cream_infographic_1795441163107.webp";
+import mockupAlphabetHandsThumb from "../assets/images/thumbs/mockup_alphabet_hands_1795441155863.webp";
+import mockupCollageSecretThumb from "../assets/images/thumbs/mockup_collage_secret_1795441155348.webp";
+import mockupCozyTabletChristmasThumb from "../assets/images/thumbs/mockup_cozy_tablet_christmas_1795603321079.webp";
+import mockupCozyTabletPastelThumb from "../assets/images/thumbs/mockup_cozy_tablet_pastel_1795603320535.webp";
+
 import { ShowcaseBackdropId } from "../types/studio";
 
 export type FlatLayBackdropId =
@@ -40,7 +65,9 @@ export type BookMockupBackdropId =
   | "mockup-animal-facts"
   | "mockup-cream-infographic"
   | "mockup-alphabet-hands"
-  | "mockup-collage-secret";
+  | "mockup-collage-secret"
+  | "mockup-cozy-tablet-christmas"
+  | "mockup-cozy-tablet-pastel";
 
 export type PhotoShowcaseBackdropId = FlatLayBackdropId | BookMockupBackdropId;
 
@@ -50,6 +77,14 @@ export const FLAT_LAY_PHOTO_URLS: Record<FlatLayBackdropId, string> = {
   "flatlay-linen-blinds": flatlayLinenBlindsImg,
   "flatlay-walnut-botanical": flatlayWalnutBotanicalImg,
   "flatlay-pastel-markers": flatlayPastelMarkersImg,
+};
+
+export const FLAT_LAY_THUMB_URLS: Record<FlatLayBackdropId, string> = {
+  "flatlay-oak-latte": flatlayOakLatteThumb,
+  "flatlay-picnic-grass": flatlayPicnicGrassThumb,
+  "flatlay-linen-blinds": flatlayLinenBlindsThumb,
+  "flatlay-walnut-botanical": flatlayWalnutBotanicalThumb,
+  "flatlay-pastel-markers": flatlayPastelMarkersThumb,
 };
 
 export const BOOK_MOCKUP_PHOTO_URLS: Record<BookMockupBackdropId, string> = {
@@ -67,11 +102,37 @@ export const BOOK_MOCKUP_PHOTO_URLS: Record<BookMockupBackdropId, string> = {
   "mockup-cream-infographic": mockupCreamInfographicImg,
   "mockup-alphabet-hands": mockupAlphabetHandsImg,
   "mockup-collage-secret": mockupCollageSecretImg,
+  "mockup-cozy-tablet-christmas": mockupCozyTabletChristmasImg,
+  "mockup-cozy-tablet-pastel": mockupCozyTabletPastelImg,
+};
+
+export const BOOK_MOCKUP_THUMB_URLS: Record<BookMockupBackdropId, string> = {
+  "mockup-standing-kids": mockupStandingKidsThumb,
+  "mockup-workbook-pastel": mockupWorkbookPastelThumb,
+  "mockup-cozy-bundle": mockupCozyBundleThumb,
+  "mockup-front-back": mockupFrontBackThumb,
+  "mockup-jungle-collage": mockupJungleCollageThumb,
+  "mockup-giftbox-kids": mockupGiftboxKidsThumb,
+  "mockup-spiral-flip": mockupSpiralFlipThumb,
+  "mockup-plush-numbers": mockupPlushNumbersThumb,
+  "mockup-look-inside": mockupLookInsideThumb,
+  "mockup-toddler-trace": mockupToddlerTraceThumb,
+  "mockup-animal-facts": mockupAnimalFactsThumb,
+  "mockup-cream-infographic": mockupCreamInfographicThumb,
+  "mockup-alphabet-hands": mockupAlphabetHandsThumb,
+  "mockup-collage-secret": mockupCollageSecretThumb,
+  "mockup-cozy-tablet-christmas": mockupCozyTabletChristmasThumb,
+  "mockup-cozy-tablet-pastel": mockupCozyTabletPastelThumb,
 };
 
 export const ALL_PHOTO_BACKDROP_URLS: Record<PhotoShowcaseBackdropId, string> = {
   ...FLAT_LAY_PHOTO_URLS,
   ...BOOK_MOCKUP_PHOTO_URLS,
+};
+
+export const ALL_PHOTO_THUMB_URLS: Record<PhotoShowcaseBackdropId, string> = {
+  ...FLAT_LAY_THUMB_URLS,
+  ...BOOK_MOCKUP_THUMB_URLS,
 };
 
 export interface FlatLayBookSpreadGeometry {
@@ -725,6 +786,34 @@ export const BOOK_MOCKUP_SLOT_GEOMETRY: Record<
       fit: "contain",
       paperBg: "#FFFFFF",
       insetPct: 0.03,
+      spineEdge: "none",
+    },
+  ],
+  "mockup-cozy-tablet-christmas": [
+    {
+      label: "Tablet Screen Preview",
+      cx: 0.506,
+      cy: 0.654,
+      w: 0.395,
+      h: 0.355,
+      angleDeg: -11.5,
+      fit: "contain",
+      paperBg: "#FFFFFF",
+      insetPct: 0.02,
+      spineEdge: "none",
+    },
+  ],
+  "mockup-cozy-tablet-pastel": [
+    {
+      label: "Tablet Screen Preview",
+      cx: 0.47,
+      cy: 0.572,
+      w: 0.425,
+      h: 0.412,
+      angleDeg: -12.3,
+      fit: "contain",
+      paperBg: "#FFFFFF",
+      insetPct: 0.02,
       spineEdge: "none",
     },
   ],

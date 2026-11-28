@@ -902,7 +902,7 @@ ${
           titleLine2Ribbon,
           titleLine3,
           subtitleText: isCraft ? "Easy Keepsakes" : "Print, color, and celebrate!",
-          footerBrandText: "LuminaStudio.com",
+          footerBrandText: "GBTK STUDIO",
           layout,
           backdrop: isHoliday
             ? isCraft
@@ -1089,7 +1089,7 @@ STRICT RULES:
           titleLine2Ribbon: words.slice(2, 4).join(" ") || "Showcase Pack",
           titleLine3: words.slice(4).join(" ") || "for Kids",
           subtitleText: "Print, color, and celebrate!",
-          footerBrandText: "LuminaStudio.com",
+          footerBrandText: "GBTK STUDIO",
           layout: "top-banner-5",
           backdrop: "pastel-kids-desk",
           plaqueStyle: "cloud-sticker",
@@ -1236,14 +1236,27 @@ STRICT RULES:
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(__dirname, "dist");
-    app.use(express.static(distPath));
+    app.use(
+      "/assets",
+      express.static(path.join(distPath, "assets"), {
+        maxAge: "1y",
+        immutable: true,
+      })
+    );
+    app.use(
+      express.static(distPath, {
+        maxAge: "1h",
+        index: false,
+      })
+    );
     app.get("/{*path}", (_req, res) => {
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Lumina Studio server listening on http://localhost:${PORT}`);
+    console.log(`GBTK STUDIO server listening on http://localhost:${PORT}`);
   });
 }
 

@@ -103,7 +103,7 @@ const STUDIO_BACKDROPS: { id: string; label: string; colors: [string, string] }[
 function createDefaultLayer(index = 1): TextLayer {
   return {
     id: `layer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    text: index === 1 ? "မင်္ဂလာပါ · Lumina" : "New Caption",
+    text: index === 1 ? "မင်္ဂလာပါ · GBTK STUDIO" : "New Caption",
     x: 50,
     y: index === 1 ? 50 : 72,
     fontSize: 64,
@@ -528,7 +528,7 @@ export function TextStudioPage({
         });
         setSavedNotice(true);
       } else {
-        triggerDownload(rendered.dataUrl, `${selectedTitle || "lumina-poster"}.png`);
+        triggerDownload(rendered.dataUrl, `${selectedTitle || "gbtk-poster"}.png`);
       }
     } finally {
       setSaving(false);

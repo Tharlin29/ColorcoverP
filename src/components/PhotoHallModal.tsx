@@ -1,8 +1,8 @@
 import {
   BookOpen,
   Download,
-  Eraser,
   FileText,
+  LayoutTemplate,
   Pencil,
   Search,
   Trash2,
@@ -10,17 +10,26 @@ import {
   Wand2,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageId, PhotoItem } from "../types/studio";
 import { exportSinglePhotoAsPdf } from "../utils/exportTools";
 import { triggerBlobDownload, triggerDownload } from "../utils/storage";
+import {
+  PhotoSelectCheckbox,
+  PhotoSelectionBar,
+  PhotoSelectToggleButton,
+  PhotoUndoToast,
+  usePhotoMultiSelect,
+} from "./PhotoSelectionBar";
 
 interface PhotoHallModalProps {
   open: boolean;
   photos: PhotoItem[];
   onClose: () => void;
   onEditPhoto: (photo: PhotoItem) => void;
-  onDeletePhoto: (id: string) => Promise<void>;
+  onDeletePhoto?: (id: string) => Promise<void>;
+  onDeletePhotos: (ids: string[]) => Promise<void>;
+  onRestorePhotos: (items: PhotoItem[]) => Promise<void>;
   onSendToPage: (page: PageId, photo: PhotoItem) => void;
 }
 
@@ -31,7 +40,8 @@ export function PhotoHallModal({
   photos,
   onClose,
   onEditPhoto,
-  onDeletePhoto,
+  onDeletePhotos,
+  onRestorePhotos,
   onSendToPage,
 }: PhotoHallModalProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -67,6 +77,32 @@ export function PhotoHallModal({
       return haystack.includes(q);
     });
   }, [photos, searchQuery, filterKind]);
+
+  const multiSelect = usePhotoMultiSelect({
+    photos,
+    filteredPhotos,
+    onDeletePhotos,
+    onRestorePhotos,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      multiSelect.clearSelection();
+      setConfirmDeleteId(null);
+      return;
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (multiSelect.isSelectionActive) {
+        e.preventDefault();
+        multiSelect.clearSelection();
+      } else {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, multiSelect.isSelectionActive, multiSelect.clearSelection, onClose]);
 
   if (!open) return null;
 
@@ -123,33 +159,59 @@ export function PhotoHallModal({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1 p-1 bg-zinc-200/70 rounded-lg">
-              {(
-                [
-                  { id: "all", label: "All" },
-                  { id: "coloring", label: "Coloring" },
-                  { id: "edited", label: "Edited" },
-                  { id: "generated", label: "Generated" },
-                  { id: "text-art", label: "Text" },
-                ] as const
-              ).map((tab) => {
-                const active = filterKind === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setFilterKind(tab.id)}
-                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
-                      active
-                        ? "bg-white text-zinc-950 shadow-sm"
-                        : "text-zinc-600 hover:text-zinc-950"
-                    }`}
-                  >
-                    {tab.label} ({kindCounts[tab.id]})
-                  </button>
-                );
-              })}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1 p-1 bg-zinc-200/70 rounded-lg">
+                {(
+                  [
+                    { id: "all", label: "All" },
+                    { id: "coloring", label: "Coloring" },
+                    { id: "edited", label: "Edited" },
+                    { id: "generated", label: "Generated" },
+                    { id: "text-art", label: "Text" },
+                  ] as const
+                ).map((tab) => {
+                  const active = filterKind === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setFilterKind(tab.id)}
+                      className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                        active
+                          ? "bg-white text-zinc-950 shadow-sm"
+                          : "text-zinc-600 hover:text-zinc-950"
+                      }`}
+                    >
+                      {tab.label} ({kindCounts[tab.id]})
+                    </button>
+                  );
+                })}
+              </div>
+
+              <PhotoSelectToggleButton
+                active={multiSelect.isSelectionActive}
+                selectedCount={multiSelect.selectedCount}
+                onClick={multiSelect.toggleSelectMode}
+              />
             </div>
+          </div>
+        )}
+
+        {/* Sticky Multi-Select Action Bar */}
+        {photos.length > 0 && multiSelect.isSelectionActive && (
+          <div className="px-6 py-2.5 bg-white border-b border-zinc-200">
+            <PhotoSelectionBar
+              visibleCount={filteredPhotos.length}
+              selectedCount={multiSelect.selectedCount}
+              allVisibleSelected={multiSelect.allVisibleSelected}
+              confirmBatchDelete={multiSelect.confirmBatchDelete}
+              deleting={multiSelect.deleting}
+              onToggleSelectAllVisible={multiSelect.toggleSelectAllVisible}
+              onClearSelection={multiSelect.clearSelection}
+              onRequestBatchDelete={() => multiSelect.setConfirmBatchDelete(true)}
+              onCancelBatchDelete={() => multiSelect.setConfirmBatchDelete(false)}
+              onConfirmBatchDelete={multiSelect.handleConfirmBatchDelete}
+            />
           </div>
         )}
 
@@ -181,15 +243,33 @@ export function PhotoHallModal({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPhotos.map((photo) => (
+              {filteredPhotos.map((photo) => {
+                const isSelected = multiSelect.selectedIds.has(photo.id);
+                return (
                 <div
                   key={photo.id}
-                  className="group border border-zinc-200 rounded-xl overflow-hidden bg-white flex flex-col"
+                  onClick={(e) => {
+                    if (multiSelect.isSelectionActive) {
+                      multiSelect.togglePhotoSelection(photo.id, e.shiftKey);
+                    }
+                  }}
+                  className={`group border rounded-xl overflow-hidden flex flex-col transition-all ${
+                    isSelected
+                      ? "border-blue-600 ring-2 ring-blue-600 bg-blue-50/20"
+                      : "border-zinc-200 bg-white"
+                  } ${multiSelect.isSelectionActive ? "cursor-pointer select-none" : ""}`}
                 >
-                  <div className="aspect-[4/3] bg-zinc-100 overflow-hidden">
+                  <div className="relative aspect-[4/3] bg-zinc-100 overflow-hidden">
+                    <PhotoSelectCheckbox
+                      checked={isSelected}
+                      title={photo.title}
+                      onToggle={(shiftKey) => multiSelect.togglePhotoSelection(photo.id, shiftKey)}
+                    />
                     <img
                       src={photo.dataUrl}
                       alt={photo.title}
+                      loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-contain bg-white"
                     />
@@ -218,7 +298,10 @@ export function PhotoHallModal({
                       </h3>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-100">
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-100"
+                    >
                       <button
                         type="button"
                         onClick={() => {
@@ -245,17 +328,6 @@ export function PhotoHallModal({
                         type="button"
                         onClick={() => {
                           onClose();
-                          onSendToPage("erase", photo);
-                        }}
-                        className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
-                      >
-                        <Eraser className="w-3.5 h-3.5" />
-                        <span>Erase</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
                           onSendToPage("book", photo);
                         }}
                         className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
@@ -276,9 +348,20 @@ export function PhotoHallModal({
                       </button>
                       <button
                         type="button"
+                        onClick={() => {
+                          onClose();
+                          onSendToPage("flyer", photo);
+                        }}
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-md cursor-pointer whitespace-nowrap"
+                      >
+                        <LayoutTemplate className="w-3.5 h-3.5" />
+                        <span>Flyer</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={async () => {
                           const blob = await exportSinglePhotoAsPdf(photo);
-                          triggerBlobDownload(blob, `${photo.title || "lumina-page"}.pdf`);
+                          triggerBlobDownload(blob, `${photo.title || "gbtk-page"}.pdf`);
                         }}
                         title="Download PDF"
                         className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 rounded-md cursor-pointer ml-auto"
@@ -288,7 +371,7 @@ export function PhotoHallModal({
                       <button
                         type="button"
                         onClick={() =>
-                          triggerDownload(photo.dataUrl, `${photo.title || "lumina-photo"}.png`)
+                          triggerDownload(photo.dataUrl, `${photo.title || "gbtk-photo"}.png`)
                         }
                         title="Download PNG"
                         className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 rounded-md cursor-pointer"
@@ -299,7 +382,7 @@ export function PhotoHallModal({
                         <button
                           type="button"
                           onClick={async () => {
-                            await onDeletePhoto(photo.id);
+                            await multiSelect.deleteByIdsWithUndo([photo.id]);
                             setConfirmDeleteId(null);
                           }}
                           className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md cursor-pointer whitespace-nowrap"
@@ -319,11 +402,19 @@ export function PhotoHallModal({
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      <PhotoUndoToast
+        deletedCount={multiSelect.undoItems?.length ?? 0}
+        restoring={multiSelect.restoring}
+        onUndo={multiSelect.handleUndoDelete}
+        onDismiss={multiSelect.dismissUndo}
+      />
     </div>
   );
 }

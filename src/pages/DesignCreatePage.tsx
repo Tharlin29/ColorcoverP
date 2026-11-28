@@ -1,24 +1,36 @@
 import {
+  ArrowDown,
+  ArrowUp,
   BookOpen,
   Check,
+  Copy,
   Download,
-  Eraser,
   Eye,
   EyeOff,
   Frame,
   Image as ImageIcon,
   ImagePlus,
+  Layers,
   LayoutTemplate,
   Loader2,
+  Move,
   Palette,
+  Plus,
   RotateCcw,
+  RotateCw,
   Save,
   Sparkles,
+  Trash2,
   Type,
   Upload,
   Wand2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BrandLogo3D } from "../components/BrandLogo3D";
+import {
+  SelectedShowcaseCardRef,
+  ShowcaseCardStageOverlay,
+} from "../components/ShowcaseCardStageOverlay";
 import { StepperControl } from "../components/StepperControl";
 import { TextBoundRibbon } from "../components/TextBoundRibbon";
 import {
@@ -28,6 +40,7 @@ import {
   ShowcaseAspectId,
   ShowcaseBackdropId,
   ShowcaseBannerBoundDash,
+  ShowcaseCardFrameStyle,
   ShowcaseCardPaper,
   ShowcaseCardSlot,
   ShowcaseDesignConfig,
@@ -38,9 +51,9 @@ import {
   TextStylePreset,
 } from "../types/studio";
 import {
-  BOOK_MOCKUP_PHOTO_URLS,
   BOOK_MOCKUP_SLOT_GEOMETRY,
-  FLAT_LAY_PHOTO_URLS,
+  BOOK_MOCKUP_THUMB_URLS,
+  FLAT_LAY_THUMB_URLS,
   getBookMockupSlotCount,
   isBookMockupBackdrop,
 } from "../utils/flatLayAssets";
@@ -48,6 +61,7 @@ import { FONT_OPTIONS as STUDIO_FONT_OPTIONS } from "../utils/imageEditor";
 import { ART_CARD_PACKS, SHOWCASE_DESIGN_PRESETS, ShowcaseDesignPreset, ShowcasePresetCategory } from "../utils/showcaseArtLibrary";
 import {
   exportShowcaseDesignDataUrl,
+  getResolvedShowcaseCardRects,
   renderShowcaseDesignToCanvas,
 } from "../utils/showcaseRenderer";
 import { readFileAsDataUrl, triggerDownload } from "../utils/storage";
@@ -80,25 +94,27 @@ const LAYOUT_OPTIONS: { id: ShowcaseLayoutId; label: string; desc: string }[] = 
 ];
 
 const BACKDROP_OPTIONS: { id: ShowcaseBackdropId; label: string; swatch: string; thumbSrc?: string }[] = [
-  { id: "mockup-giftbox-kids", label: "Kids Gift Box Unboxing", swatch: "linear-gradient(135deg, #FBCFE8, #FDE68A)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-giftbox-kids"] },
-  { id: "mockup-spiral-flip", label: "Spiral Flip Cat Desk", swatch: "linear-gradient(135deg, #F59E0B, #38BDF8)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-spiral-flip"] },
-  { id: "mockup-plush-numbers", label: "Plush Friends Spread", swatch: "linear-gradient(135deg, #FEF08A, #FB923C)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-plush-numbers"] },
-  { id: "mockup-look-inside", label: "Look Inside Split Desk", swatch: "linear-gradient(135deg, #BAE6FD, #86EFAC)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-look-inside"] },
-  { id: "mockup-toddler-trace", label: "Toddler Tracing Desk", swatch: "linear-gradient(135deg, #E9D5FF, #FDE68A)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-toddler-trace"] },
-  { id: "mockup-animal-facts", label: "Animal Fun Facts Spread", swatch: "linear-gradient(135deg, #D97706, #4ADE80)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-animal-facts"] },
-  { id: "mockup-cream-infographic", label: "Cream Studio Infographic", swatch: "linear-gradient(135deg, #FFEDD5, #FBCFE8)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-cream-infographic"] },
-  { id: "mockup-alphabet-hands", label: "Alphabet Overhead Hands", swatch: "linear-gradient(135deg, #FDE047, #60A5FA)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-alphabet-hands"] },
-  { id: "mockup-collage-secret", label: "8-Book Craft Collage", swatch: "linear-gradient(135deg, #B45309, #0D9488)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-collage-secret"] },
-  { id: "mockup-standing-kids", label: "3D Standing Kids Desk", swatch: "linear-gradient(135deg, #FDE68A, #60A5FA)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-standing-kids"] },
-  { id: "mockup-workbook-pastel", label: "Pastel Workbook Spread", swatch: "linear-gradient(135deg, #BAE6FD, #FED7AA)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-workbook-pastel"] },
-  { id: "mockup-cozy-bundle", label: "Cozy Oak Bundle", swatch: "linear-gradient(135deg, #D97706, #EC4899)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-cozy-bundle"] },
-  { id: "mockup-front-back", label: "Front & Back ABC Desk", swatch: "linear-gradient(135deg, #F59E0B, #38BDF8)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-front-back"] },
-  { id: "mockup-jungle-collage", label: "Jungle Desk Collage", swatch: "linear-gradient(135deg, #FDE68A, #F9A8D4)", thumbSrc: BOOK_MOCKUP_PHOTO_URLS["mockup-jungle-collage"] },
-  { id: "flatlay-oak-latte", label: "Cozy Oak & Latte", swatch: "linear-gradient(135deg, #9A6438, #FDE68A)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-oak-latte"] },
-  { id: "flatlay-picnic-grass", label: "Picnic Blanket & Grass", swatch: "linear-gradient(135deg, #4D7C0F, #E7DCC8)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-picnic-grass"] },
-  { id: "flatlay-linen-blinds", label: "Minimalist Linen Blinds", swatch: "linear-gradient(135deg, #F5F2EB, #A8A29E)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-linen-blinds"] },
-  { id: "flatlay-walnut-botanical", label: "Dark Walnut & Tea", swatch: "linear-gradient(135deg, #2C1E16, #78350F)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-walnut-botanical"] },
-  { id: "flatlay-pastel-markers", label: "Pastel Desk & Markers", swatch: "linear-gradient(135deg, #FBF6EC, #F9A8D4)", thumbSrc: FLAT_LAY_PHOTO_URLS["flatlay-pastel-markers"] },
+  { id: "mockup-cozy-tablet-christmas", label: "Christmas Cozy Tablet Stickers", swatch: "linear-gradient(135deg, #7F1D1D, #2D5A3D)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cozy-tablet-christmas"] },
+  { id: "mockup-cozy-tablet-pastel", label: "Cozy Knit Tablet Printable", swatch: "linear-gradient(135deg, #E7D5C0, #3D6B5B)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cozy-tablet-pastel"] },
+  { id: "mockup-giftbox-kids", label: "Kids Gift Box Unboxing", swatch: "linear-gradient(135deg, #FBCFE8, #FDE68A)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-giftbox-kids"] },
+  { id: "mockup-spiral-flip", label: "Spiral Flip Cat Desk", swatch: "linear-gradient(135deg, #F59E0B, #38BDF8)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-spiral-flip"] },
+  { id: "mockup-plush-numbers", label: "Plush Friends Spread", swatch: "linear-gradient(135deg, #FEF08A, #FB923C)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-plush-numbers"] },
+  { id: "mockup-look-inside", label: "Look Inside Split Desk", swatch: "linear-gradient(135deg, #BAE6FD, #86EFAC)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-look-inside"] },
+  { id: "mockup-toddler-trace", label: "Toddler Tracing Desk", swatch: "linear-gradient(135deg, #E9D5FF, #FDE68A)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-toddler-trace"] },
+  { id: "mockup-animal-facts", label: "Animal Fun Facts Spread", swatch: "linear-gradient(135deg, #D97706, #4ADE80)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-animal-facts"] },
+  { id: "mockup-cream-infographic", label: "Cream Studio Infographic", swatch: "linear-gradient(135deg, #FFEDD5, #FBCFE8)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cream-infographic"] },
+  { id: "mockup-alphabet-hands", label: "Alphabet Overhead Hands", swatch: "linear-gradient(135deg, #FDE047, #60A5FA)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-alphabet-hands"] },
+  { id: "mockup-collage-secret", label: "8-Book Craft Collage", swatch: "linear-gradient(135deg, #B45309, #0D9488)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-collage-secret"] },
+  { id: "mockup-standing-kids", label: "3D Standing Kids Desk", swatch: "linear-gradient(135deg, #FDE68A, #60A5FA)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-standing-kids"] },
+  { id: "mockup-workbook-pastel", label: "Pastel Workbook Spread", swatch: "linear-gradient(135deg, #BAE6FD, #FED7AA)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-workbook-pastel"] },
+  { id: "mockup-cozy-bundle", label: "Cozy Oak Bundle", swatch: "linear-gradient(135deg, #D97706, #EC4899)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-cozy-bundle"] },
+  { id: "mockup-front-back", label: "Front & Back ABC Desk", swatch: "linear-gradient(135deg, #F59E0B, #38BDF8)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-front-back"] },
+  { id: "mockup-jungle-collage", label: "Jungle Desk Collage", swatch: "linear-gradient(135deg, #FDE68A, #F9A8D4)", thumbSrc: BOOK_MOCKUP_THUMB_URLS["mockup-jungle-collage"] },
+  { id: "flatlay-oak-latte", label: "Cozy Oak & Latte", swatch: "linear-gradient(135deg, #9A6438, #FDE68A)", thumbSrc: FLAT_LAY_THUMB_URLS["flatlay-oak-latte"] },
+  { id: "flatlay-picnic-grass", label: "Picnic Blanket & Grass", swatch: "linear-gradient(135deg, #4D7C0F, #E7DCC8)", thumbSrc: FLAT_LAY_THUMB_URLS["flatlay-picnic-grass"] },
+  { id: "flatlay-linen-blinds", label: "Minimalist Linen Blinds", swatch: "linear-gradient(135deg, #F5F2EB, #A8A29E)", thumbSrc: FLAT_LAY_THUMB_URLS["flatlay-linen-blinds"] },
+  { id: "flatlay-walnut-botanical", label: "Dark Walnut & Tea", swatch: "linear-gradient(135deg, #2C1E16, #78350F)", thumbSrc: FLAT_LAY_THUMB_URLS["flatlay-walnut-botanical"] },
+  { id: "flatlay-pastel-markers", label: "Pastel Desk & Markers", swatch: "linear-gradient(135deg, #FBF6EC, #F9A8D4)", thumbSrc: FLAT_LAY_THUMB_URLS["flatlay-pastel-markers"] },
   { id: "craft-table-lights", label: "Craft Wood & Holly", swatch: "linear-gradient(135deg, #6B4226, #14532D)" },
   { id: "festive-pine-desk", label: "Festive Pine & Crayons", swatch: "linear-gradient(135deg, #704728, #DC2626)" },
   { id: "spring-botanical-oak", label: "Sunlit Botanical Oak", swatch: "linear-gradient(135deg, #D2AE82, #65A30D)" },
@@ -540,6 +556,8 @@ function PresetMiniPreview({ preset }: { preset: ShowcaseDesignPreset }) {
         <img
           src={preset.thumbnailSrc}
           alt={preset.label}
+          loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
           className="w-full h-full object-cover"
         />
@@ -706,13 +724,20 @@ export function DesignCreatePage({
   const [aiError, setAiError] = useState<string | null>(null);
 
   const [hallPickerSlotIdx, setHallPickerSlotIdx] = useState<number | null>(null);
+  const [hallPickerForCustomCard, setHallPickerForCustomCard] = useState(false);
+  const [selectedCanvasCard, setSelectedCanvasCard] =
+    useState<SelectedShowcaseCardRef | null>(null);
   const [uploadTargetSlotIdx, setUploadTargetSlotIdx] = useState<number>(0);
   const [savingHall, setSavingHall] = useState(false);
   const [savedFlag, setSavedFlag] = useState(false);
   const [exportingPng, setExportingPng] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
+  const [fontsLoadedTick, setFontsLoadedTick] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderSeqRef = useRef(0);
   const slotFileInputRef = useRef<HTMLInputElement>(null);
+  const customCardFileInputRef = useRef<HTMLInputElement>(null);
   const customBgInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -738,25 +763,51 @@ export function DesignCreatePage({
     setAiNotice(`Loaded "${initialPhoto.title}" into Showcase Card #1.`);
   }, [initialPhoto]);
 
+  // Repaint the preview canvas once asynchronous Google Fonts finish loading
+  useEffect(() => {
+    let active = true;
+    const fonts = typeof document !== "undefined" ? document.fonts : undefined;
+    if (!fonts?.ready) return;
+    fonts.ready
+      .then(() => {
+        if (active) setFontsLoadedTick((t) => t + 1);
+      })
+      .catch(() => {
+        // Ignore font observer errors
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    let cancelled = false;
-    renderShowcaseDesignToCanvas(canvas, config).catch(() => {
-      if (!cancelled) {
-        // Ignore transient image decode error
-      }
+    const seq = ++renderSeqRef.current;
+    const rafId = window.requestAnimationFrame(() => {
+      renderShowcaseDesignToCanvas(canvas, config, { previewScale: 0.65 })
+        .then(() => {
+          if (renderSeqRef.current === seq) {
+            setCanvasReady(true);
+          }
+        })
+        .catch(() => {
+          if (renderSeqRef.current === seq) {
+            setCanvasReady(true);
+          }
+        });
     });
     return () => {
-      cancelled = true;
+      window.cancelAnimationFrame(rafId);
     };
-  }, [config]);
+  }, [config, fontsLoadedTick]);
 
   const updateConfig = (patch: Partial<ShowcaseDesignConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
   };
 
   const customLayers = config.customTextLayers || [];
+  const customCards = config.customCards || [];
   const activeCustomLayer =
     customLayers.find((l) => l.id === activeCustomTextId) || customLayers[0] || null;
 
@@ -766,6 +817,210 @@ export function DesignCreatePage({
       cards: prev.cards.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
     }));
   };
+
+  const updateCustomCard = (idx: number, patch: Partial<ShowcaseCardSlot>) => {
+    setConfig((prev) => ({
+      ...prev,
+      customCards: (prev.customCards || []).map((c, i) =>
+        i === idx ? { ...c, ...patch } : c
+      ),
+    }));
+  };
+
+  const handleUpdateAnyCardTransform = (
+    ref: SelectedShowcaseCardRef,
+    patch: Partial<ShowcaseCardSlot>
+  ) => {
+    if (ref.source === "custom") {
+      updateCustomCard(ref.index, patch);
+    } else {
+      updateCardSlot(ref.index, patch);
+    }
+  };
+
+  const handleAddCustomCardFromUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    try {
+      const created: ShowcaseCardSlot[] = [];
+      const baseCount = (config.customCards || []).length;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const { dataUrl, width, height } = await readFileAsDataUrl(file);
+        const cleanName =
+          file.name.replace(/\.[^.]+$/, "").slice(0, 32) ||
+          `Custom Card ${baseCount + i + 1}`;
+        const aspectRatio =
+          width > 0 && height > 0
+            ? Math.max(0.4, Math.min(2.4, width / height))
+            : 0.78;
+        const offsetStep = ((baseCount + i) % 5) - 2;
+        created.push({
+          id: `custom-card-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+          label: cleanName,
+          src: dataUrl,
+          paper: "white",
+          frameStyle: "paper",
+          x: Math.max(18, Math.min(82, 50 + offsetStep * 8)),
+          y: Math.max(22, Math.min(82, 54 + offsetStep * 5)),
+          widthPct: 34,
+          aspectRatio,
+          rotation: 0,
+          aboveBanner: true,
+        });
+      }
+      setConfig((prev) => {
+        const nextList = [...(prev.customCards || []), ...created];
+        return { ...prev, customCards: nextList };
+      });
+      const lastNew = created[created.length - 1];
+      setSelectedCanvasCard({
+        source: "custom",
+        index: baseCount + created.length - 1,
+        id: lastNew.id,
+      });
+      setInspectorTab("cards");
+      setAiNotice(
+        `Added ${created.length} custom image card${created.length > 1 ? "s" : ""}. Drag on preview to move, rotate, or resize.`
+      );
+    } catch {
+      setAiError("Unable to read selected image file(s).");
+    }
+    e.target.value = "";
+  };
+
+  const handleAddCustomCardFromPhotoHall = (photo: PhotoItem) => {
+    const baseCount = (config.customCards || []).length;
+    const offsetStep = (baseCount % 5) - 2;
+    const aspectRatio =
+      photo.width > 0 && photo.height > 0
+        ? Math.max(0.4, Math.min(2.4, photo.width / photo.height))
+        : 0.78;
+    const newCard: ShowcaseCardSlot = {
+      id: `custom-card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      label: photo.title.slice(0, 32) || `Custom Card ${baseCount + 1}`,
+      src: photo.dataUrl,
+      paper: "white",
+      frameStyle: "paper",
+      x: Math.max(18, Math.min(82, 50 + offsetStep * 8)),
+      y: Math.max(22, Math.min(82, 54 + offsetStep * 5)),
+      widthPct: 34,
+      aspectRatio,
+      rotation: 0,
+      aboveBanner: true,
+    };
+    setConfig((prev) => ({
+      ...prev,
+      customCards: [...(prev.customCards || []), newCard],
+    }));
+    setSelectedCanvasCard({
+      source: "custom",
+      index: baseCount,
+      id: newCard.id,
+    });
+    setHallPickerForCustomCard(false);
+    setAiNotice(`Added "${newCard.label}" as a movable card. Drag on canvas to position or tilt.`);
+  };
+
+  const handleDeleteCustomCard = (idx: number) => {
+    setConfig((prev) => ({
+      ...prev,
+      customCards: (prev.customCards || []).filter((_, i) => i !== idx),
+    }));
+    setSelectedCanvasCard((prev) => {
+      if (!prev || prev.source !== "custom") return prev;
+      if (prev.index === idx) return null;
+      if (prev.index > idx) return { ...prev, index: prev.index - 1 };
+      return prev;
+    });
+  };
+
+  const handleDuplicateCustomCard = (idx: number) => {
+    const target = customCards[idx];
+    if (!target) return;
+    const copy: ShowcaseCardSlot = {
+      ...target,
+      id: `custom-card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      x: Math.min(88, (target.x ?? 50) + 6),
+      y: Math.min(88, (target.y ?? 54) + 5),
+    };
+    setConfig((prev) => ({
+      ...prev,
+      customCards: [...(prev.customCards || []), copy],
+    }));
+    setSelectedCanvasCard({
+      source: "custom",
+      index: customCards.length,
+      id: copy.id,
+    });
+  };
+
+  const handleMoveCustomCardLayer = (idx: number, dir: -1 | 1) => {
+    const nextIdx = idx + dir;
+    if (nextIdx < 0 || nextIdx >= customCards.length) return;
+    setConfig((prev) => {
+      const list = [...(prev.customCards || [])];
+      const [moved] = list.splice(idx, 1);
+      list.splice(nextIdx, 0, moved);
+      return { ...prev, customCards: list };
+    });
+    setSelectedCanvasCard((prev) =>
+      prev && prev.source === "custom" && prev.index === idx
+        ? { ...prev, index: nextIdx }
+        : prev
+    );
+  };
+
+  const handleResetSlotTransform = (idx: number) => {
+    updateCardSlot(idx, {
+      x: undefined,
+      y: undefined,
+      rotation: undefined,
+      scale: undefined,
+      widthPct: undefined,
+    });
+  };
+
+  const resolvedCardRects = useMemo(
+    () => getResolvedShowcaseCardRects(config),
+    [config]
+  );
+
+  const slotBaseScales = useMemo(() => {
+    const map: Record<number, number> = {};
+    config.cards.forEach((c, idx) => {
+      map[idx] = c.scale ?? 1;
+    });
+    return map;
+  }, [config.cards]);
+
+  const customBaseWidths = useMemo(() => {
+    const map: Record<number, number> = {};
+    (config.customCards || []).forEach((c, idx) => {
+      map[idx] = c.widthPct ?? 34;
+    });
+    return map;
+  }, [config.customCards]);
+
+  const activeSelectedRect = useMemo(() => {
+    if (!selectedCanvasCard) return null;
+    return (
+      resolvedCardRects.find(
+        (r) =>
+          r.source === selectedCanvasCard.source &&
+          r.index === selectedCanvasCard.index
+      ) || null
+    );
+  }, [resolvedCardRects, selectedCanvasCard]);
+
+  const activeSelectedCardObj = useMemo(() => {
+    if (!selectedCanvasCard) return null;
+    return selectedCanvasCard.source === "custom"
+      ? customCards[selectedCanvasCard.index] || null
+      : config.cards[selectedCanvasCard.index] || null;
+  }, [config.cards, customCards, selectedCanvasCard]);
 
   const handleAddCustomText = () => {
     const next = createDesignCustomTextLayer(customLayers.length + 1, config.fontFamily);
@@ -808,11 +1063,13 @@ export function DesignCreatePage({
       ? found.config.customTextLayers.map((l) => ({ ...l }))
       : [];
     setActivePresetId(found.id);
-    setConfig({
+    setSelectedCanvasCard(null);
+    setConfig((prev) => ({
       ...found.config,
       cards: found.config.cards.map((c) => ({ ...c })),
+      customCards: prev.customCards ? prev.customCards.map((c) => ({ ...c })) : [],
       customTextLayers: clonedLayers,
-    });
+    }));
     setActiveCustomTextId(clonedLayers[0]?.id || "");
     setAiNotice(null);
     setAiError(null);
@@ -991,7 +1248,7 @@ export function DesignCreatePage({
     }
   };
 
-  const handleSendDesignTo = async (target: "erase" | "ai-edit" | "text" | "book") => {
+  const handleSendDesignTo = async (target: "ai-edit" | "text" | "book") => {
     setSavingHall(true);
     try {
       const item = await buildPhotoItemFromDesign();
@@ -1025,19 +1282,12 @@ export function DesignCreatePage({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-6 pb-24 md:pb-16 space-y-6">
       {/* Studio Header & Export Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-900">
-              <Sparkles className="w-3 h-3" />
-              <span>Showcase Poster & Pin Designer</span>
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950">
-            New Image Design Studio
-          </h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1.5 min-w-0">
+          <h1 className="sr-only">GBTK STUDIO — Printable Page &amp; Coloring Books</h1>
+          <BrandLogo3D variant="hero" />
           <p className="text-sm text-zinc-600">
-            Upload ပုံများလို လှပသော Die-Cut Sticker ခေါင်းစဉ်၊ Showcase Card များနှင့် Festive Tabletop Design အသစ်များ ဖန်တီးပါ။
+            Upload ပုံများလို လှပသော Die-Cut Sticker ခေါင်းစဉ်၊ Showcase Card များနှင့် Printable Coloring Book Design အသစ်များ ဖန်တီးပါ။
           </p>
         </div>
 
@@ -1101,10 +1351,18 @@ export function DesignCreatePage({
           />
 
           <div className="bg-zinc-900 rounded-2xl p-3 sm:p-4 border border-zinc-800 shadow-xl flex flex-col items-center gap-3">
-            {/* Aspect Ratio Selector & Quick Banner Toggle */}
+            {/* Aspect Ratio Selector, Add Custom Card & Quick Banner Toggle */}
             <div className="w-full flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-zinc-400">Live Design Preview</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-medium text-zinc-400">Live Preview</span>
+                <button
+                  type="button"
+                  onClick={() => customCardFileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-500 cursor-pointer transition-colors whitespace-nowrap"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Image Card</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => updateConfig({ hideHeroBanner: !config.hideHeroBanner })}
@@ -1145,13 +1403,199 @@ export function DesignCreatePage({
               </div>
             </div>
 
-            {/* Canvas Stage */}
-            <div className="w-full flex justify-center overflow-hidden rounded-xl bg-zinc-950/50">
-              <canvas
-                ref={canvasRef}
-                className="max-h-[58vh] w-auto max-w-full rounded-xl shadow-2xl object-contain"
-              />
+            <input
+              ref={customCardFileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleAddCustomCardFromUpload}
+              className="hidden"
+            />
+
+            {/* Canvas Stage with Direct Touch/Mouse Card Drag, Rotate & Resize */}
+            <div className="relative w-full min-h-[340px] py-4 px-2 flex justify-center items-center overflow-visible rounded-xl bg-zinc-950/50">
+              {!canvasReady && (
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 flex items-center justify-center bg-zinc-950/60 rounded-xl"
+                >
+                  <div className="h-72 w-48 rounded-xl bg-zinc-800/80 motion-safe:animate-pulse" />
+                </div>
+              )}
+              <div className="relative inline-flex max-h-[58vh] max-w-full">
+                <canvas
+                  ref={canvasRef}
+                  className={`block max-h-[58vh] w-auto max-w-full rounded-xl shadow-2xl transition-opacity duration-200 ${
+                    canvasReady ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                {canvasReady && resolvedCardRects.length > 0 && (
+                  <ShowcaseCardStageOverlay
+                    rects={resolvedCardRects}
+                    selected={selectedCanvasCard}
+                    onSelect={setSelectedCanvasCard}
+                    onUpdateCardTransform={handleUpdateAnyCardTransform}
+                    slotBaseScales={slotBaseScales}
+                    customBaseWidths={customBaseWidths}
+                  />
+                )}
+              </div>
             </div>
+
+            {/* Selected Card Direct Position & Orientation Quick Bar */}
+            {selectedCanvasCard && activeSelectedRect && activeSelectedCardObj ? (
+              <div className="w-full rounded-xl bg-zinc-800/95 border border-zinc-700/80 px-3 py-2 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Move className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span className="text-[11px] font-semibold text-white truncate">
+                      {activeSelectedRect.label}
+                    </span>
+                    <span className="text-[10px] font-mono tabular-nums text-zinc-400 whitespace-nowrap">
+                      X {Math.round((activeSelectedRect.cx / activeSelectedRect.canvasW) * 100)}% · Y{" "}
+                      {Math.round((activeSelectedRect.cy / activeSelectedRect.canvasH) * 100)}% ·{" "}
+                      {Math.round(activeSelectedRect.angleDeg)}°
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCanvasCard(null)}
+                    className="text-[11px] font-medium text-zinc-400 hover:text-white cursor-pointer whitespace-nowrap"
+                  >
+                    Done
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleUpdateAnyCardTransform(selectedCanvasCard, { rotation: 0 })
+                    }
+                    className={`px-2 py-1 text-[11px] font-semibold rounded-md cursor-pointer whitespace-nowrap ${
+                      Math.round(activeSelectedRect.angleDeg) === 0
+                        ? "bg-blue-600 text-white"
+                        : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
+                    }`}
+                  >
+                    တည့်တည့် (0°)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleUpdateAnyCardTransform(selectedCanvasCard, { rotation: -12 })
+                    }
+                    className={`px-2 py-1 text-[11px] font-semibold rounded-md cursor-pointer whitespace-nowrap ${
+                      Math.round(activeSelectedRect.angleDeg) === -12
+                        ? "bg-blue-600 text-white"
+                        : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
+                    }`}
+                  >
+                    ဘယ်စောင်း (-12°)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleUpdateAnyCardTransform(selectedCanvasCard, { rotation: 12 })
+                    }
+                    className={`px-2 py-1 text-[11px] font-semibold rounded-md cursor-pointer whitespace-nowrap ${
+                      Math.round(activeSelectedRect.angleDeg) === 12
+                        ? "bg-blue-600 text-white"
+                        : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
+                    }`}
+                  >
+                    ညာစောင်း (+12°)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleUpdateAnyCardTransform(selectedCanvasCard, {
+                        rotation: Math.max(-180, Math.round(activeSelectedRect.angleDeg) - 5),
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-zinc-700 text-zinc-200 hover:bg-zinc-600 cursor-pointer whitespace-nowrap"
+                    title="Rotate left 5 degrees"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>-5°</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleUpdateAnyCardTransform(selectedCanvasCard, {
+                        rotation: Math.min(180, Math.round(activeSelectedRect.angleDeg) + 5),
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-zinc-700 text-zinc-200 hover:bg-zinc-600 cursor-pointer whitespace-nowrap"
+                    title="Rotate right 5 degrees"
+                  >
+                    <RotateCw className="w-3 h-3" />
+                    <span>+5°</span>
+                  </button>
+
+                  {selectedCanvasCard.source === "custom" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateCustomCard(selectedCanvasCard.index, {
+                            aboveBanner: activeSelectedCardObj.aboveBanner === false,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-zinc-700 text-zinc-200 hover:bg-zinc-600 cursor-pointer whitespace-nowrap"
+                      >
+                        <Layers className="w-3 h-3" />
+                        <span>
+                          {activeSelectedCardObj.aboveBanner === false
+                            ? "Behind Banner"
+                            : "Above Banner"}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDuplicateCustomCard(selectedCanvasCard.index)
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-zinc-700 text-zinc-200 hover:bg-zinc-600 cursor-pointer whitespace-nowrap"
+                        title="Duplicate card"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeleteCustomCard(selectedCanvasCard.index)
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-rose-600/90 text-white hover:bg-rose-500 cursor-pointer whitespace-nowrap"
+                        title="Delete custom card"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Remove</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleResetSlotTransform(selectedCanvasCard.index)
+                      }
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-zinc-700 text-amber-200 hover:bg-zinc-600 cursor-pointer whitespace-nowrap"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset Pos</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="w-full text-[11px] text-zinc-400 flex items-center justify-between gap-2 px-1">
+                <span>
+                  {resolvedCardRects.length > 0
+                    ? "ပုံကတ်များကို လက်ဖြင့်ဆွဲရွှေ့၊ အပေါ်စက်ဝိုင်းဖြင့် စောင်း/တည့်တည့် (0°) လှည့်နိုင်ပါသည်"
+                    : "Click \"+ Add Image Card\" to place movable image cards on this design"}
+                </span>
+              </div>
+            )}
 
             {/* Send Design Directly to Other Tools */}
             <div className="w-full flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-zinc-800/90">
@@ -1160,17 +1604,8 @@ export function DesignCreatePage({
                 <button
                   type="button"
                   disabled={savingHall}
-                  onClick={() => handleSendDesignTo("erase")}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer"
-                >
-                  <Eraser className="w-3 h-3" />
-                  <span>Select &amp; Erase</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={savingHall}
                   onClick={() => handleSendDesignTo("ai-edit")}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer whitespace-nowrap"
                 >
                   <Wand2 className="w-3 h-3" />
                   <span>AI Edit</span>
@@ -1179,7 +1614,7 @@ export function DesignCreatePage({
                   type="button"
                   disabled={savingHall}
                   onClick={() => handleSendDesignTo("text")}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer whitespace-nowrap"
                 >
                   <Type className="w-3 h-3" />
                   <span>Text Studio</span>
@@ -1188,7 +1623,7 @@ export function DesignCreatePage({
                   type="button"
                   disabled={savingHall}
                   onClick={() => handleSendDesignTo("book")}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg cursor-pointer whitespace-nowrap"
                 >
                   <BookOpen className="w-3 h-3" />
                   <span>Book Cover</span>
@@ -1505,6 +1940,8 @@ export function DesignCreatePage({
                               <img
                                 src={bg.thumbSrc}
                                 alt={bg.label}
+                                loading="lazy"
+                                decoding="async"
                                 referrerPolicy="no-referrer"
                                 className="w-full h-full object-cover"
                               />
@@ -1674,7 +2111,7 @@ export function DesignCreatePage({
                         type="text"
                         value={config.footerBrandText}
                         onChange={(e) => updateConfig({ footerBrandText: e.target.value })}
-                        placeholder="e.g. LuminaStudio.com (blank to hide)"
+                        placeholder="e.g. GBTK STUDIO (blank to hide)"
                         className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                       />
                     </label>
@@ -2595,6 +3032,297 @@ export function DesignCreatePage({
 
               {inspectorTab === "cards" && (
                 <>
+                  {/* Custom Free-Positioning Movable Image Cards */}
+                  <div className="p-3.5 rounded-xl bg-white border border-zinc-200 space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-xs font-bold text-zinc-950">
+                          Custom Movable Image Cards ({customCards.length})
+                        </h3>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                          စိတ်ကြိုက်ပုံကတ်များ ထပ်ထည့်ပြီး Preview ပေါ်တွင် လက်ဖြင့် တည့်တည့် (0°) / အစောင်း / ကြိုက်ရာနေရာသို့ ဆွဲရွှေ့သတ်မှတ်နိုင်ပါသည်။
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => customCardFileInputRef.current?.click()}
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer whitespace-nowrap"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Image Card(s)</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={photos.length === 0}
+                        onClick={() => setHallPickerForCustomCard((prev) => !prev)}
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-900 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 rounded-lg disabled:opacity-45 cursor-pointer whitespace-nowrap"
+                      >
+                        <ImagePlus className="w-3.5 h-3.5" />
+                        <span>Add from Photo Hall</span>
+                      </button>
+                    </div>
+
+                    {hallPickerForCustomCard && photos.length > 0 && (
+                      <div className="p-2.5 rounded-lg border border-blue-200 bg-blue-50/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-zinc-900">
+                            Pick Photo Hall image to add as movable card
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setHallPickerForCustomCard(false)}
+                            className="text-[11px] text-zinc-500 hover:text-zinc-900 cursor-pointer"
+                          >
+                            Close
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-36 overflow-y-auto pr-1">
+                          {photos.map((photo) => (
+                            <button
+                              key={`add-custom-${photo.id}`}
+                              type="button"
+                              onClick={() => handleAddCustomCardFromPhotoHall(photo)}
+                              className="aspect-[3/4] rounded-lg border border-zinc-200 hover:border-blue-600 bg-white overflow-hidden cursor-pointer"
+                            >
+                              <img
+                                src={photo.dataUrl}
+                                alt={photo.title}
+                                loading="lazy"
+                                decoding="async"
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-contain p-0.5"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {customCards.length > 0 && (
+                      <div className="space-y-2.5">
+                        {customCards.map((card, cIdx) => {
+                          const isSelected =
+                            selectedCanvasCard?.source === "custom" &&
+                            selectedCanvasCard.index === cIdx;
+                          const rot = Math.round(card.rotation ?? 0);
+                          return (
+                            <div
+                              key={card.id}
+                              onClick={() =>
+                                setSelectedCanvasCard({
+                                  source: "custom",
+                                  index: cIdx,
+                                  id: card.id,
+                                })
+                              }
+                              className={`p-2.5 rounded-xl border transition-colors space-y-2.5 cursor-pointer ${
+                                isSelected
+                                  ? "border-blue-500 bg-blue-50/40"
+                                  : "border-zinc-200 bg-zinc-50/70 hover:border-zinc-300"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <img
+                                  src={card.src}
+                                  alt={card.label}
+                                  loading="lazy"
+                                  decoding="async"
+                                  referrerPolicy="no-referrer"
+                                  className="w-11 h-14 object-cover bg-white rounded-lg border border-zinc-200 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-semibold text-zinc-900 truncate">
+                                      #{cIdx + 1} · {card.label}
+                                    </span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        title="Move layer backward"
+                                        disabled={cIdx === 0}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMoveCustomCardLayer(cIdx, -1);
+                                        }}
+                                        className="p-1 text-zinc-600 hover:text-zinc-950 disabled:opacity-30 cursor-pointer"
+                                      >
+                                        <ArrowDown className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        title="Move layer forward"
+                                        disabled={cIdx === customCards.length - 1}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMoveCustomCardLayer(cIdx, 1);
+                                        }}
+                                        className="p-1 text-zinc-600 hover:text-zinc-950 disabled:opacity-30 cursor-pointer"
+                                      >
+                                        <ArrowUp className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        title="Duplicate card"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDuplicateCustomCard(cIdx);
+                                        }}
+                                        className="p-1 text-zinc-600 hover:text-zinc-950 cursor-pointer"
+                                      >
+                                        <Copy className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        title="Remove custom card"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteCustomCard(cIdx);
+                                        }}
+                                        className="p-1 text-rose-600 hover:text-rose-700 cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Quick Orientation & Frame Style Row */}
+                                  <div
+                                    className="flex flex-wrap items-center gap-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => updateCustomCard(cIdx, { rotation: 0 })}
+                                      className={`px-2 py-0.5 text-[10px] font-semibold rounded border cursor-pointer whitespace-nowrap ${
+                                        rot === 0
+                                          ? "bg-zinc-950 text-white border-zinc-950"
+                                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                                      }`}
+                                    >
+                                      တည့်တည့် 0°
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateCustomCard(cIdx, { rotation: -12 })}
+                                      className={`px-2 py-0.5 text-[10px] font-semibold rounded border cursor-pointer whitespace-nowrap ${
+                                        rot === -12
+                                          ? "bg-zinc-950 text-white border-zinc-950"
+                                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                                      }`}
+                                    >
+                                      ဘယ်စောင်း -12°
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateCustomCard(cIdx, { rotation: 12 })}
+                                      className={`px-2 py-0.5 text-[10px] font-semibold rounded border cursor-pointer whitespace-nowrap ${
+                                        rot === 12
+                                          ? "bg-zinc-950 text-white border-zinc-950"
+                                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                                      }`}
+                                    >
+                                      ညာစောင်း +12°
+                                    </button>
+                                    <select
+                                      value={card.frameStyle || "paper"}
+                                      onChange={(e) =>
+                                        updateCustomCard(cIdx, {
+                                          frameStyle: e.target.value as ShowcaseCardFrameStyle,
+                                        })
+                                      }
+                                      aria-label={`Frame style for custom card ${cIdx + 1}`}
+                                      className="px-1.5 py-0.5 text-[10px] font-medium bg-white border border-zinc-200 rounded cursor-pointer"
+                                    >
+                                      <option value="paper">Card Border</option>
+                                      <option value="polaroid">Polaroid</option>
+                                      <option value="clean">No Border</option>
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateCustomCard(cIdx, {
+                                          aboveBanner: card.aboveBanner === false,
+                                        })
+                                      }
+                                      className="px-2 py-0.5 text-[10px] font-medium bg-white border border-zinc-200 hover:border-zinc-400 rounded cursor-pointer whitespace-nowrap"
+                                    >
+                                      {card.aboveBanner === false ? "Behind Banner" : "On Top"}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Fine Free Angle Slider + X / Y / Size Controls */}
+                              <div
+                                className="space-y-2 pt-1 border-t border-zinc-200/70"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <label className="block">
+                                  <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-600 mb-1">
+                                    <span>Free Angle (စိတ်ကြိုက် အစောင်း/တည့်တည့်)</span>
+                                    <span className="font-mono tabular-nums text-zinc-900">
+                                      {rot}°
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min={-180}
+                                    max={180}
+                                    step={1}
+                                    value={rot}
+                                    onChange={(e) =>
+                                      updateCustomCard(cIdx, {
+                                        rotation: Number(e.target.value),
+                                      })
+                                    }
+                                    className="w-full accent-blue-600 cursor-pointer"
+                                  />
+                                </label>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  <StepperControl
+                                    compact
+                                    label="Left ↔ Right"
+                                    value={Math.round(card.x ?? 50)}
+                                    min={4}
+                                    max={96}
+                                    step={2}
+                                    unit="%"
+                                    onChange={(val) => updateCustomCard(cIdx, { x: val })}
+                                  />
+                                  <StepperControl
+                                    compact
+                                    label="Up ↕ Down"
+                                    value={Math.round(card.y ?? 54)}
+                                    min={4}
+                                    max={96}
+                                    step={2}
+                                    unit="%"
+                                    onChange={(val) => updateCustomCard(cIdx, { y: val })}
+                                  />
+                                  <StepperControl
+                                    compact
+                                    label="Card Size"
+                                    value={Math.round(card.widthPct ?? 34)}
+                                    min={12}
+                                    max={90}
+                                    step={2}
+                                    unit="%"
+                                    onChange={(val) =>
+                                      updateCustomCard(cIdx, { widthPct: val })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   {(config.layout === "flat-lay-book" || config.layout === "book-mockup") && (
                     <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2706,6 +3434,8 @@ export function DesignCreatePage({
                             <img
                               src={card.src}
                               alt={card.label}
+                              loading="lazy"
+                              decoding="async"
                               referrerPolicy="no-referrer"
                               className="w-12 h-16 object-cover bg-white rounded-lg border border-zinc-200 shrink-0"
                             />
@@ -2771,6 +3501,46 @@ export function DesignCreatePage({
                                   <option value="pastel-blue">Blue</option>
                                   <option value="pastel-cream">Cream</option>
                                 </select>
+                                {config.layout !== "flat-lay-book" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (
+                                          config.layout === "book-mockup" &&
+                                          !config.overlayFlatLayPages
+                                        ) {
+                                          updateConfig({ overlayFlatLayPages: true });
+                                        }
+                                        setSelectedCanvasCard({
+                                          source: "slot",
+                                          index: idx,
+                                          id: card.id,
+                                        });
+                                      }}
+                                      className={`px-2 py-1 text-[10px] font-semibold rounded border cursor-pointer whitespace-nowrap ${
+                                        selectedCanvasCard?.source === "slot" &&
+                                        selectedCanvasCard.index === idx
+                                          ? "bg-blue-600 text-white border-blue-600"
+                                          : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400"
+                                      }`}
+                                    >
+                                      Move / Tilt
+                                    </button>
+                                    {(card.x !== undefined ||
+                                      card.y !== undefined ||
+                                      card.rotation !== undefined ||
+                                      card.scale !== undefined) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleResetSlotTransform(idx)}
+                                        className="px-2 py-1 text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded cursor-pointer whitespace-nowrap"
+                                      >
+                                        Reset Pos
+                                      </button>
+                                    )}
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2966,6 +3736,8 @@ export function DesignCreatePage({
                             <img
                               src={photo.dataUrl}
                               alt={photo.title}
+                              loading="lazy"
+                              decoding="async"
                               referrerPolicy="no-referrer"
                               className="w-full h-full object-contain p-0.5"
                             />
@@ -2980,22 +3752,14 @@ export function DesignCreatePage({
           </div>
 
           {/* Quick Jump Links to Other Studio Tools */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <button
               type="button"
-              onClick={() => onNavigate("erase")}
+              onClick={() => onNavigate("flyer")}
               className="p-3 bg-white border border-zinc-200 hover:border-zinc-400 rounded-xl text-left space-y-0.5 cursor-pointer"
             >
-              <div className="text-xs font-semibold text-zinc-950">Select &amp; Erase</div>
-              <div className="text-[11px] text-zinc-500">Brush, Lasso &amp; Wand</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate("create")}
-              className="p-3 bg-white border border-zinc-200 hover:border-zinc-400 rounded-xl text-left space-y-0.5 cursor-pointer"
-            >
-              <div className="text-xs font-semibold text-zinc-950">Photo Create</div>
-              <div className="text-[11px] text-zinc-500">300+ DPI Coloring</div>
+              <div className="text-xs font-semibold text-zinc-950">Back Page Flyer</div>
+              <div className="text-[11px] text-zinc-500">Clickable PDF &amp; QR</div>
             </button>
             <button
               type="button"

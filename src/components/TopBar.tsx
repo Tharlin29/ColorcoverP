@@ -1,5 +1,6 @@
-import { BookOpen, Eraser, ImagePlus, Images, Sparkles, Type, Wand2 } from "lucide-react";
+import { BookOpen, Images, LayoutTemplate, Sparkles, Type, Wand2 } from "lucide-react";
 import { PageId } from "../types/studio";
+import { BrandLogo3D } from "./BrandLogo3D";
 
 interface TopBarProps {
   activePage: PageId;
@@ -10,8 +11,7 @@ interface TopBarProps {
 
 const NAV_ITEMS: { id: PageId; label: string; mobileLabel: string; icon: typeof Sparkles }[] = [
   { id: "design", label: "Image Design", mobileLabel: "Design", icon: Sparkles },
-  { id: "erase", label: "Select & Erase", mobileLabel: "Erase", icon: Eraser },
-  { id: "create", label: "Photo Create", mobileLabel: "Create", icon: ImagePlus },
+  { id: "flyer", label: "Back Page Flyer", mobileLabel: "Flyer", icon: LayoutTemplate },
   { id: "ai-edit", label: "AI Edit", mobileLabel: "AI Edit", icon: Wand2 },
   { id: "book", label: "Book Builder", mobileLabel: "Book", icon: BookOpen },
   { id: "text", label: "Text Studio", mobileLabel: "Text", icon: Type },
@@ -20,15 +20,16 @@ const NAV_ITEMS: { id: PageId; label: string; mobileLabel: string; icon: typeof 
 export function TopBar({ activePage, onNavigate, photoCount, onOpenPhotoHall }: TopBarProps) {
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[#F7F7F5]/90 backdrop-blur-md border-b border-zinc-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-14 md:h-16 flex items-center justify-between gap-8">
-          {/* Zone 1: Brand Title */}
+      <header className="sticky top-0 z-40 bg-[#F7F7F5] border-b border-zinc-200/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4 lg:gap-8">
+          {/* Zone 1: 3D Brand Title */}
           <button
             type="button"
             onClick={() => onNavigate("design")}
-            className="text-lg md:text-xl font-bold tracking-tight text-zinc-950 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded"
+            aria-label="GBTK STUDIO — Printable Page & Coloring Books"
+            className="inline-flex items-center py-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-lg transition-transform hover:scale-[1.01] active:scale-[0.99]"
           >
-            Lumina Studio
+            <BrandLogo3D variant="header" />
           </button>
 
           {/* Zone 2: 4 Single-Line Nav Links */}
@@ -66,12 +67,12 @@ export function TopBar({ activePage, onNavigate, photoCount, onOpenPhotoHall }: 
         </div>
       </header>
 
-      {/* Mobile Bottom Thumb-Zone Navigation Bar (6 pages) */}
+      {/* Mobile Bottom Thumb-Zone Navigation Bar (5 pages) */}
       <nav
         aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200 pb-safe"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-zinc-200 pb-safe"
       >
-        <div className="grid grid-cols-6 h-16 items-center">
+        <div className="grid grid-cols-5 h-16 items-center">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activePage === item.id;

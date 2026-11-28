@@ -237,7 +237,7 @@ export function buildSampleBookCoverSvg(): string {
   </g>
   <!-- Bottom Author Ribbon -->
   <rect x="240" y="815" width="320" height="44" rx="22" fill="#FEF3C7" stroke="#78350F" stroke-width="3"/>
-  <text x="400" y="843" text-anchor="middle" font-family="'Outfit', sans-serif" font-size="22" font-weight="700" fill="#451A03">Lumina Kids Press</text>
+  <text x="400" y="843" text-anchor="middle" font-family="'Outfit', sans-serif" font-size="22" font-weight="700" fill="#451A03">GBTK STUDIO</text>
 </svg>`;
 }
 
@@ -492,7 +492,7 @@ export function buildBookPromoPosterTemplate(photos: PhotoItem[]): {
     },
     {
       id: `txt-footer-${now}`,
-      text: "www.luminastudio.com",
+      text: "GBTK STUDIO",
       x: 50,
       y: 95,
       fontSize: 28,
